@@ -1,52 +1,121 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using MineGame.World;
+using MineGame.World.Objects;
+using MineGame.World.Tiles;
 
-namespace MineGameB
-{
-    public class Game1 : Game
-    {
-        private GraphicsDeviceManager _graphics;
-        private SpriteBatch _spriteBatch;
+namespace MineGame;
+public class Game1 : GameTemplate.Game {
+    public static Game1 Instance { get; private set; }
 
-        public Game1()
-        {
-            _graphics = new GraphicsDeviceManager(this);
-            Content.RootDirectory = "Content";
-            IsMouseVisible = true;
+    protected override void Initialize() {
+        Shapes.Initialize(GraphicsDevice);
+        Camera.TranslateBackToWorldPos = false;
+        base.Initialize();
+    }
+
+    protected override void Dispose(bool disposing) {
+        if (disposing)
+            Shapes.Dispose();
+        base.Dispose(disposing);
+    }
+
+
+    Map map;
+    Texture2D dotTex, shadowTex;
+    Effect radialEffect;
+    public TileRegister tileRegister;
+
+    public Game1() : base() {
+        Instance = this;
+    }
+
+    protected override void LoadContent() {
+        dotTex = new Texture2D(GraphicsDevice, 1, 1);
+        dotTex.SetData([Color.White]);
+
+        radialEffect = Content.Load<Effect>("RadialEffect");
+        shadowTex = Content.Load<Texture2D>("shadow");
+        Texture2D tileset = Game1.Instance.Content.Load<Texture2D>("tiles2");
+        Texture2D objsImage = Content.Load<Texture2D>("objects");
+
+
+        tileRegister = new TileRegister();
+        var register = tileRegister.Register;
+        Tile newTile(string name, int px, int py) {
+            var t = Map.TileSize;
+            return register(new Tile(tileset, new(px * t, py * t, t, t), name));
         }
 
-        protected override void Initialize()
-        {
-            // TODO: Add your initialization logic here
+        register(new(tileset, new(0, 64, 2, 2), "debug"));
+        newTile("floor1", 0, 0).SetMapColor(Color.DarkGray);
+        newTile("floor2", 1, 0).SetMapColor(Color.DarkGray);
+        newTile("coper", 2, 0).SetMapColor(Color.Orange);
+        newTile("wall", 3, 0).SetMapColor(Color.Gray).SetSolid().SetLightPassable(false);
 
-            base.Initialize();
+        map = new Map().Load();
+
+        map.AddObject(new Lever(objsImage, new(map.WorldWidth / 2, map.WorldHeight / 2)).Load());
+        map.AddObject(new Lever(objsImage, new(map.WorldWidth / 2 + Map.TileSize, map.WorldHeight / 2)).Load());
+        map.AddObject(new Lever(objsImage, new(map.WorldWidth / 2, map.WorldHeight / 2 + Map.TileSize)).Load());
+        map.AddObject(new Lever(objsImage, new(map.WorldWidth / 2 + Map.TileSize, map.WorldHeight / 2 + Map.TileSize)).Load());
+
+        Camera.Load();
+        Camera.MoveHardTo(new Vector2(map.WorldWidth/2, map.WorldHeight/2));
+
+        base.LoadContent();
+    }
+
+    protected override void Update(GameTime gameTime) {
+        if (Keyboard.GetState().IsKeyDown(Keys.Escape))
+            Exit();
+
+        map.Update(gameTime);
+
+        Camera.ScaleIndependent(gameTime);
+        Camera.MoveIndependent(gameTime, 500);
+
+        base.Update(gameTime);
+    }
+
+    Rectangle mapLightningRect;
+    protected void RuntimeLoadEffect() {
+        Rectangle camRect = Camera.GetViewBounds(GraphicsDevice);
+        Rectangle r = map.GetVisibleTileRect(camRect);
+        var mapLightningOffset = map.GetPosAtTile(new Point(r.X, r.Y));
+        mapLightningRect = new Rectangle(
+            (int)mapLightningOffset.X,
+            (int)mapLightningOffset.Y,
+            r.Width * Map.TileSize,
+            r.Height * Map.TileSize
+        );
+
+        map.BuildVisibleLightTexture(r);
+
+        // bind texture to shader slot s0
+        GraphicsDevice.Textures[0] = shadowTex;
+
+        // shader params
+        radialEffect.Parameters["TileSize"].SetValue(1f / (Map.TileSize/Camera.Zoom));
+        radialEffect.Parameters["Softness"].SetValue(2f);
+    }
+
+    protected override void Draw(GameTime gameTime) {
+        GraphicsDevice.Clear(Color.Black);
+        DrawBackground(Color.CornflowerBlue);
+        RuntimeLoadEffect();
+
+        _spriteBatch.Begin(transformMatrix: CameraTransform, samplerState: SamplerState.PointClamp);
+        map.Draw(_spriteBatch);
+        _spriteBatch.End();
+
+        _spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, transformMatrix: CameraTransform, effect: radialEffect);
+        if (map.InWorldZoom) {
+            _spriteBatch.Draw(map.LightTexture, mapLightningRect, Color.White);
         }
+        _spriteBatch.End();
 
-        protected override void LoadContent()
-        {
-            _spriteBatch = new SpriteBatch(GraphicsDevice);
-
-            // TODO: use this.Content to load your game content here
-        }
-
-        protected override void Update(GameTime gameTime)
-        {
-            if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
-                Exit();
-
-            // TODO: Add your update logic here
-
-            base.Update(gameTime);
-        }
-
-        protected override void Draw(GameTime gameTime)
-        {
-            GraphicsDevice.Clear(Color.CornflowerBlue);
-
-            // TODO: Add your drawing code here
-
-            base.Draw(gameTime);
-        }
+        base.Draw(gameTime);
     }
 }
