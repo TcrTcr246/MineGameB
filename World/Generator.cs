@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using System;
 
-namespace MineGame.World {
+namespace MineGameB.World {
     public class Generator {
         public int[,] Tiles { get; protected set; }
         public int Width { get; set; }
@@ -16,12 +16,17 @@ namespace MineGame.World {
             Tiles = new int[width, height];
         }
 
-        public static int GetMap(Random rng, Point _, float value) {
+        public float _scale = 10f;
+        public int _octaves = 4;
+        public float _persistence = .5f;
+        public float _lacunarity = 2f;
+        public int _bands = 2;
+        public float _bandWidth = .15f;
+        public int? _seed = int.MinValue;
+
+        private static int GetMap(Random rng, Point _, float value, int bands, float bandWidth) {
             var reg = Game1.Instance.tileRegister;
             int id = reg.GetIdByName("wall");
-
-            const int bands = 2;
-            const float bandWidth = 0.15f;
 
             for (int i = 0; i < bands; i++) {
                 float start = i / (float)bands;
@@ -35,31 +40,36 @@ namespace MineGame.World {
             return id;
         }
 
-        public void Generate() {
-            Random seedRng = new();
-            var seed = seedRng.Next();
+        public void Generate(float scale = float.NaN, int octaves = int.MinValue, float persistence = float.NaN, float lacunarity = float.NaN) {
+            scale = float.IsNaN(scale) ? _scale : scale;
+            octaves = octaves == int.MinValue ? _octaves : octaves;
+            persistence = float.IsNaN(persistence) ? _persistence : persistence;
+            lacunarity = float.IsNaN(lacunarity) ? _lacunarity : lacunarity;
 
-            Random rng = new(seed);
+            int bands = int.MinValue;
+            float bandWidth = float.NaN;
 
-            float[,] noise = GenerateNoiseMap(Width, Height, seed);
+            bands = bands == int.MinValue ? _bands : bands;
+            bandWidth = float.IsNaN(bandWidth) ? _bandWidth : bandWidth;
+
+            var rng = new Random(_seed == int.MinValue ? new Random().Next() : (int)_seed);
+
+            float[,] noise = GenerateNoiseMap(Width, Height, rng, scale, octaves, persistence, lacunarity);
 
             for (int x = 0; x < Width; x++) {
                 for (int y = 0; y < Height; y++) {
                     float value = noise[x, y];
-                    Tiles[x, y] = GetMap(rng, new(x, y), value);
+                    Tiles[x, y] = GetMap(rng, new(x, y), value, bands, bandWidth);
                 }
             }
         }
 
-        private static float[,] GenerateNoiseMap(int width, int height, int seed) {
+        private static float[,] GenerateNoiseMap(int width, int height, Random rng,
+            float scale, int octaves, float persistence, float lacunarity) {
+
             float[,] noiseMap = new float[width, height];
-            Random rng = new(seed);
 
             // Perlin noise parameters
-            float scale = 10f;
-            int octaves = 4;
-            float persistence = 0.5f;
-            float lacunarity = 2f;
 
             Vector2[] octaveOffsets = new Vector2[octaves];
             for (int i = 0; i < octaves; i++) {

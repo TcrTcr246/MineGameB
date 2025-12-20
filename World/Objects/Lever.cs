@@ -5,11 +5,11 @@ using Microsoft.Xna.Framework.Input;
 using System;
 using System.Diagnostics;
 
-namespace MineGame.World.Objects;
+namespace MineGameB.World.Objects;
 
 public class Lever : WorldObject {
     private Texture2D texture;
-    private Rectangle baseASource, baseBSource, armSource, armNodeSource, mouseNodeSource;
+    private Rectangle baseASource, baseBSource, armSource, armNodeSource;
     public float Rotation { get; set; } = -MathHelper.PiOver4;
     public float Scale { get; set; } = 1f;
 
@@ -22,9 +22,8 @@ public class Lever : WorldObject {
 
         baseASource = new Rectangle(0, 0, 32, 32);
         baseBSource = new Rectangle(32, 0, 32, 32);
-        armSource = new Rectangle(64, 0, 32, 32);
-        armNodeSource = new Rectangle(96, 0, 32, 32);
-        mouseNodeSource = new Rectangle(128, 0, 32, 32);
+        armSource = new Rectangle(0, 32, 16, 16);
+        armNodeSource = new Rectangle(16, 32, 16, 16);
 
         basePivot = new Vector2(baseASource.Width / 2f, baseASource.Height / 2f);
         armPivot = new Vector2(0f, armSource.Height / 2f);
@@ -41,14 +40,16 @@ public class Lever : WorldObject {
     }
 
 
-    private float RotationSpeed = 0f;   // current angular velocity
-    private float MaxAngularSpeed = MathHelper.Pi; // rad/sec
-    private float AngularAcceleration = MathHelper.Pi; // rad/sec²
-    private float Damping = 0.96f; // friction
+    private float RotationSpeed = 0f;
+    private float MaxAngularSpeed = MathHelper.Pi/3;
+    private float AngularAcceleration = MathHelper.Pi*1.5f;
+    private float Damping = 0.98f;
 
     static Lever activeLever = null;
     bool isDragging;
     float? targetRotation = null;
+    public float RotationalEnergy { private set; get; } = 0f;
+    bool cogAttached = true;
 
     public override void Update(GameTime gameTime) {
         var dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
@@ -86,105 +87,90 @@ public class Lever : WorldObject {
             RotationSpeed += diff * AngularAcceleration * dt;
         }
 
-        // inertia always runs
         RotationSpeed = MathHelper.Clamp(RotationSpeed, -MaxAngularSpeed, MaxAngularSpeed);
         RotationSpeed *= Damping;
         Rotation += RotationSpeed * dt;
 
-        float momentOfInertia = 1f; // arbitrary scalar for lever
-        float rotationalEnergy = 0.5f * momentOfInertia * RotationSpeed * RotationSpeed;
-        // Debug.WriteLine($"Rotational energy: {rotationalEnergy}");
+        float momentOfInertia = 1f;
+        RotationalEnergy = 0.5f * momentOfInertia * RotationSpeed * RotationSpeed;
 
         base.Update(gameTime);
     }
 
 
-    public override void Draw(SpriteBatch spriteBatch) {
-        spriteBatch.Draw(
-            texture,
-            Position,
-            baseASource,
-            Color.White,
-            0f,
-            basePivot,
-            Scale,
-            SpriteEffects.None,
-            0f
-        );
-    }
+    public override void DrawLayer(SpriteBatch spriteBatch, int layer) {
+        if (layer == -2) {
+            if (!cogAttached)
+                spriteBatch.Draw(
+                    texture,
+                    Position,
+                    baseASource,
+                    Color.White,
+                    0f,
+                    basePivot,
+                    Scale,
+                    SpriteEffects.None,
+                    0f
+                );
+        } else if (layer == 0) {
+            // arm rotates around left edge, but positioned relative to base center
+            spriteBatch.Draw(
+                texture,
+                Position,
+                armSource,
+                Color.White,
+                Rotation,
+                armPivot,
+                new Vector2(Scale * armLength / armSource.Width, Scale),
+                SpriteEffects.None,
+                0f
+            );
 
-    public void DrawArm(SpriteBatch spriteBatch) {
-        // arm rotates around left edge, but positioned relative to base center
-        spriteBatch.Draw(
-            texture,
-            Position,
-            armSource,
-            Color.White,
-            Rotation,
-            armPivot,
-            new Vector2(Scale * armLength / armSource.Width, Scale),
-            SpriteEffects.None,
-            0f
-        );
+            if (!cogAttached) {
+                // base centered at Position
+                spriteBatch.Draw(
+                    texture,
+                    Position,
+                    baseBSource,
+                    Color.White,
+                    0f,
+                    basePivot,
+                    Scale,
+                    SpriteEffects.None,
+                    0f
+                );
+            }
 
-        // base centered at Position
-        spriteBatch.Draw(
-            texture,
-            Position,
-            baseBSource,
-            Color.White,
-            0f,
-            basePivot,
-            Scale,
-            SpriteEffects.None,
-            0f
-        );
-        spriteBatch.Draw(
-            texture,
-            Position,
-            baseBSource,
-            Color.White,
-            0f,
-            basePivot,
-            Scale,
-            SpriteEffects.None,
-            0f
-        );
+            spriteBatch.Draw(
+                texture,
+                Position,
+                baseBSource,
+                Color.White,
+                Rotation,
+                basePivot,
+                Scale,
+                SpriteEffects.None,
+                0f
+            );
 
-        Vector2 armEnd =
-        Position +
-        Vector2.Transform(
-            new Vector2(armLength * Scale, 0f),
-            Matrix.CreateRotationZ(Rotation)
-        );
-        spriteBatch.Draw(
-            texture,
-            armEnd,
-            armNodeSource,
-            Color.White,
-            Rotation,
-            armNodePivot,
-            Scale,
-            SpriteEffects.None,
-            0f
-        );
-
-
-        /*
-        spriteBatch.Draw(
-            texture,
-            armEnd,
-            mouseNodeSource,
-            Color.White,
-            0f,
-            armNodePivot,
-            Scale*(1/Game1.Instance.Camera.Zoom),
-            SpriteEffects.None,
-            0f
-        );
-        */
-
-        base.Draw(spriteBatch);
+            Vector2 armEnd =
+            Position +
+            Vector2.Transform(
+                new Vector2(armLength * Scale, 0f),
+                Matrix.CreateRotationZ(Rotation)
+            );
+            spriteBatch.Draw(
+                texture,
+                armEnd,
+                armNodeSource,
+                Color.White,
+                Rotation,
+                armNodePivot,
+                Scale,
+                SpriteEffects.None,
+                0f
+            );
+        }
     }
 
     public Rectangle GetBounds() {

@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using System;
 
-namespace MineGame;
+namespace MineGameB;
 
 public static class Shapes {
     private static BasicEffect _effect;

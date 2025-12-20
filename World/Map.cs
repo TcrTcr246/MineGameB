@@ -1,25 +1,38 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using MineGame.World.Objects;
-using MineGame.World.Tiles;
+using MineGameB.World.Objects;
+using MineGameB.World.Tiles;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
-namespace MineGame.World;
+namespace MineGameB.World;
 public class Map {
-    public const int TileSize = 32;
-    public int Width = 375;
-    public int Height = 375;
-    public int WorldWidth = 0;
-    public int WorldHeight = 0;
+    public int TileSize { get; private set; } = 32;
+    public int Width { get; private set; } = 375;
+    public int Height { get; private set; } = 375;
+    public int WorldWidth { get; private set; } = 0;
+    public int WorldHeight { get; private set; } = 0;
 
+#pragma warning disable IDE0079
+#pragma warning disable CA1822
     public bool InWorldZoom => Game1.Instance.Camera.Zoom >= 0.35f;
+#pragma warning restore CA1822
+#pragma warning restore IDE0079
     public Rectangle Rect => new(0, 0, WorldWidth, WorldHeight);
 
     protected int[,] Tiles;
-    protected List<WorldObject> Objects;
-    public void AddObject(WorldObject obj) => Objects.Add(obj);
+    protected Dictionary<Point, List<WorldObject>> Objects;
+    public void AddObject(Point pct, WorldObject obj) {
+        if (!Objects.TryGetValue(pct, out var list)) {
+            list = [];
+            Objects[pct] = list;
+        }
+        list.Add(obj);
+    }
+
+    public void AddObjectRel(Map map, Point pct, WorldObject obj) => AddObject(pct + new Point(map.Width/2, map.Height/2), obj);
 
     protected Generator generator;
 
@@ -30,16 +43,14 @@ public class Map {
     }
 
     public Map Load() {
-        Generate();
-
         WorldWidth = Width * TileSize;
         WorldHeight = Height * TileSize;
         return this;
     }
-
-    public void Generate() {
+    public Map Generate() {
         generator.Generate();
         Tiles = generator.Tiles;
+        return this;
     }
 
     const int darkSeeRange = 2;
@@ -79,27 +90,6 @@ public class Map {
             }
 
         LightTexture.SetData(data);
-    }
-
-
-    Texture2D drawedTexture;
-    KeyboardState ks, lks;
-    bool firstFrame = true;
-
-    public void Update(GameTime gameTime) {
-        (gameTime).ToString();
-
-        lks = ks;
-        ks = Keyboard.GetState();
-
-        if (ks.IsKeyDown(Keys.R) && !lks.IsKeyDown(Keys.R) || firstFrame) {
-            Generate();
-            GenTex();
-            firstFrame = false;
-        }
-
-        for (int i = Objects.Count - 1; i >= 0; i--)
-            Objects[i].Update(gameTime);
     }
 
     public void GenTex() {
@@ -142,6 +132,28 @@ public class Map {
         return Tiles[x, y];
     }
 
+
+    Texture2D drawedTexture;
+    KeyboardState ks, lks;
+    bool firstFrame = true;
+
+    public void Update(GameTime gameTime) {
+        (gameTime).ToString();
+
+        lks = ks;
+        ks = Keyboard.GetState();
+
+        if (ks.IsKeyDown(Keys.R) && !lks.IsKeyDown(Keys.R) || firstFrame) {
+            Generate();
+            GenTex();
+            firstFrame = false;
+        }
+
+        foreach (var o in Objects.Values.Reverse())
+            foreach (var o2 in o)
+                o2.Update(gameTime);
+    }
+
     public void Draw(SpriteBatch spriteBatch) {
         if (!InWorldZoom) {
             spriteBatch.Draw(drawedTexture, new Rectangle(0, 0, WorldWidth, WorldHeight), Color.White);
@@ -155,12 +167,21 @@ public class Map {
                 }
             }
 
-            foreach (var o in Objects)
-                o.Draw(spriteBatch);
+            int layerRange = 10;
 
-            foreach (var o in Objects)
-                if (o is Lever l)
-                    l.DrawArm(spriteBatch);
+            foreach (var o in Objects.Values)
+                for (int n = -layerRange; n < 0; n++)
+                    foreach (var o2 in o)
+                        o2.DrawLayer(spriteBatch, n);
+
+            foreach (var o in Objects.Values)
+                foreach (var o2 in o)
+                    o2.Draw(spriteBatch);
+
+            foreach (var o in Objects.Values)
+                for (int n = 0; n <= layerRange; n++)
+                    foreach (var o2 in o)
+                        o2.DrawLayer(spriteBatch, n);
         }
     }
 

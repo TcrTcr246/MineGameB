@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
 
-namespace MineGame.World.Tiles;
+namespace MineGameB.World.Tiles;
 public class TileRegister {
     Dictionary<int, Tile> archive = [];
     public int Count() => archive.Count;

@@ -1,11 +1,11 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using MineGame.World;
-using MineGame.World.Objects;
-using MineGame.World.Tiles;
+using MineGameB.World;
+using MineGameB.World.Objects;
+using MineGameB.World.Tiles;
 
-namespace MineGame;
+namespace MineGameB;
 public class Game1 : GameTemplate.Game {
     public static Game1 Instance { get; private set; }
 
@@ -40,11 +40,12 @@ public class Game1 : GameTemplate.Game {
         Texture2D tileset = Game1.Instance.Content.Load<Texture2D>("tiles2");
         Texture2D objsImage = Content.Load<Texture2D>("objects");
 
+        int tilesize = 32;
 
         tileRegister = new TileRegister();
         var register = tileRegister.Register;
         Tile newTile(string name, int px, int py) {
-            var t = Map.TileSize;
+            var t = tilesize;
             return register(new Tile(tileset, new(px * t, py * t, t, t), name));
         }
 
@@ -54,12 +55,11 @@ public class Game1 : GameTemplate.Game {
         newTile("coper", 2, 0).SetMapColor(Color.Orange);
         newTile("wall", 3, 0).SetMapColor(Color.Gray).SetSolid().SetLightPassable(false);
 
-        map = new Map().Load();
+        map = new Map().Load().Generate();
 
-        map.AddObject(new Lever(objsImage, new(map.WorldWidth / 2, map.WorldHeight / 2)).Load());
-        map.AddObject(new Lever(objsImage, new(map.WorldWidth / 2 + Map.TileSize, map.WorldHeight / 2)).Load());
-        map.AddObject(new Lever(objsImage, new(map.WorldWidth / 2, map.WorldHeight / 2 + Map.TileSize)).Load());
-        map.AddObject(new Lever(objsImage, new(map.WorldWidth / 2 + Map.TileSize, map.WorldHeight / 2 + Map.TileSize)).Load());
+        map.AddObjectRel(map, new(0, 0), new Lever(objsImage, new(map.WorldWidth / 2, map.WorldHeight / 2)).Load());
+        map.AddObjectRel(map, new(0, 0), new Cog(objsImage, new(map.WorldWidth / 2, map.WorldHeight / 2)).Load());
+        map.AddObjectRel(map, new(0, 0), new Cog(objsImage, new(map.WorldWidth / 2 + map.TileSize, map.WorldHeight / 2)).Load());
 
         Camera.Load();
         Camera.MoveHardTo(new Vector2(map.WorldWidth/2, map.WorldHeight/2));
@@ -83,12 +83,14 @@ public class Game1 : GameTemplate.Game {
     protected void RuntimeLoadEffect() {
         Rectangle camRect = Camera.GetViewBounds(GraphicsDevice);
         Rectangle r = map.GetVisibleTileRect(camRect);
+        r = new Rectangle(r.X-1, r.Y-1, r.Width+2, r.Height+2);
+
         var mapLightningOffset = map.GetPosAtTile(new Point(r.X, r.Y));
         mapLightningRect = new Rectangle(
             (int)mapLightningOffset.X,
             (int)mapLightningOffset.Y,
-            r.Width * Map.TileSize,
-            r.Height * Map.TileSize
+            r.Width * map.TileSize,
+            r.Height * map.TileSize
         );
 
         map.BuildVisibleLightTexture(r);
@@ -97,14 +99,16 @@ public class Game1 : GameTemplate.Game {
         GraphicsDevice.Textures[0] = shadowTex;
 
         // shader params
-        radialEffect.Parameters["TileSize"].SetValue(1f / (Map.TileSize/Camera.Zoom));
+        radialEffect.Parameters["TileSize"].SetValue(1f / (map.TileSize/Camera.Zoom));
         radialEffect.Parameters["Softness"].SetValue(2f);
     }
 
     protected override void Draw(GameTime gameTime) {
         GraphicsDevice.Clear(Color.Black);
         DrawBackground(Color.CornflowerBlue);
-        RuntimeLoadEffect();
+
+        if (map.InWorldZoom)
+            RuntimeLoadEffect();
 
         _spriteBatch.Begin(transformMatrix: CameraTransform, samplerState: SamplerState.PointClamp);
         map.Draw(_spriteBatch);

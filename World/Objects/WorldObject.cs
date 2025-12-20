@@ -1,7 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace MineGame.World.Objects;
+namespace MineGameB.World.Objects;
 public class WorldObject {
     public Vector2 Position { get; set; }
 
@@ -10,5 +10,8 @@ public class WorldObject {
     }
 
     public virtual void Update(GameTime gameTime) { }
+
+
+    public virtual void DrawLayer(SpriteBatch spriteBatch, int layer) { }
     public virtual void Draw(SpriteBatch spriteBatch) { }
 }

@@ -1,7 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace MineGame.World;
+namespace MineGameB.World;
 
 public class Tile(Texture2D texture, Rectangle sourceRectangle, string name) {
     public Texture2D Texture { get; set; } = texture;

@@ -1,2 +1,2 @@
-﻿using var game = new MineGame.Game1();
+﻿using var game = new MineGameB.Game1();
 game.Run();
