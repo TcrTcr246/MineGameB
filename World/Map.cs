@@ -17,7 +17,7 @@ public class Map {
 
 #pragma warning disable IDE0079
 #pragma warning disable CA1822
-    public bool InWorldZoom => Game1.Instance.Camera.Zoom >= 0.35f;
+    public bool InWorldZoom => Game1.Instance.Camera.Zoom >= 0.2f; // 0.35f
 #pragma warning restore CA1822
 #pragma warning restore IDE0079
     public Rectangle Rect => new(0, 0, WorldWidth, WorldHeight);
@@ -44,6 +44,9 @@ public class Map {
     }
 
     public Map Load() {
+        generator.FlatGenerate(Game1.Instance.tileRegister.GetIdByName("floor1"));
+        Tiles = generator.Tiles;
+
         WorldWidth = Width * TileSize;
         WorldHeight = Height * TileSize;
         return this;
@@ -148,16 +151,16 @@ public class Map {
     bool firstFrame = true;
 
     public void Update(GameTime gameTime) {
-        (gameTime).ToString();
-
         lks = ks;
         ks = Keyboard.GetState();
 
-        if (ks.IsKeyDown(Keys.R) && !lks.IsKeyDown(Keys.R) || firstFrame) {
+        if (ks.IsKeyDown(Keys.R) && !lks.IsKeyDown(Keys.R)) {
             Generate();
             GenTex();
-            firstFrame = false;
         }
+        if (firstFrame)
+            GenTex();
+        firstFrame = false;
 
         foreach (var o in Objects.Values.Reverse())
             foreach (var o2 in o)

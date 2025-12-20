@@ -49,14 +49,17 @@ public class Game1 : GameTemplate.Game {
             return register(new Tile(tileset, new(px * t, py * t, t, t), name));
         }
 
-        register(new(tileset, new(0, 64, 2, 2), "debug"));
+        register(new(tileset, new(0, 64, 2, 2), "debug")).SetMapColor(Color.Magenta);
         newTile("floor1", 0, 0).SetMapColor(Color.DarkGray);
         newTile("floor2", 1, 0).SetMapColor(Color.DarkGray);
         newTile("coper", 2, 0).SetMapColor(Color.Orange);
         newTile("wall", 3, 0).SetMapColor(Color.Gray).SetSolid().SetLightPassable(false);
 
-        map = new Map().Load().Generate();
+        map = new Map().Load();
 
+        for (int i = 0; i < 5; i++)
+            map.AddObjectRel(map, new(-5+i, 0), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(-5, 0), new Lever(objsImage).Load());
         map.AddObjectRel(map, new(0, 0), new Cog(objsImage).Load());
         map.AddObjectRel(map, new(0, 0), new Lever(objsImage).Load());
         map.AddObjectRel(map, new(1, 0), new Cog(objsImage).Load());
@@ -72,8 +75,22 @@ public class Game1 : GameTemplate.Game {
         map.AddObjectRel(map, new(0, 4), new Cog(objsImage).Load());
         map.AddObjectRel(map, new(0, 5), new Cog(objsImage).Load());
         map.AddObjectRel(map, new(0, 6), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(0, 7), new Cog(objsImage).Load());
         map.AddObjectRel(map, new(1, 5), new Cog(objsImage).Load());
-        map.AddObjectRel(map, new(1, 5), new Lever(objsImage).Load());
+        map.AddObjectRel(map, new(-3, 7), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(-5, 7), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(-5, 7), new Lever(objsImage).Load());
+        map.AddObjectRel(map, new(-8, 7), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(-7, 7), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(-7, 7), new Lever(objsImage).Load());
+        map.AddObjectRel(map, new(-7, 9), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(-7, 9), new Lever(objsImage).Load());
+        map.AddObjectRel(map, new(-8, 9), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(-8, 9), new Lever(objsImage).Load());
+        for (int i = 0; i < 5; i++)
+            for (int j = 0; j < 4; j++)
+                map.AddObjectRel(map, new(3+i, 6+j), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(4, 6), new Lever(objsImage).Load());
 
         Camera.Load();
         Camera.MoveHardTo(new Vector2(map.WorldWidth/2, map.WorldHeight/2));
