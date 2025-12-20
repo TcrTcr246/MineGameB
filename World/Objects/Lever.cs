@@ -11,14 +11,19 @@ public class Lever : WorldObject {
     private Texture2D texture;
     private Rectangle baseASource, baseBSource, armSource, armNodeSource;
     public float Rotation { get; set; } = -MathHelper.PiOver4;
+    public float LastRotation { get; set; }
     public float Scale { get; set; } = 1f;
 
     private Vector2 basePivot, armPivot, armNodePivot;
     private float armLength = 24f;
 
-    public Lever(Texture2D texture, Vector2 position) {
+    public Cog cogweel = null;
+
+    public Lever(Texture2D texture, Cog cogweel=null) {
         this.texture = texture;
-        Position = position;
+        LastRotation = Rotation;
+        if (cogweel is not null)
+            this.cogweel = cogweel;
 
         baseASource = new Rectangle(0, 0, 32, 32);
         baseBSource = new Rectangle(32, 0, 32, 32);
@@ -28,6 +33,10 @@ public class Lever : WorldObject {
         basePivot = new Vector2(baseASource.Width / 2f, baseASource.Height / 2f);
         armPivot = new Vector2(0f, armSource.Height / 2f);
         armNodePivot = new Vector2(armSource.Width / 2f, armSource.Height / 2f);
+    }
+
+    public override void OnSetMapPosition(Point pos) {
+        cogweel ??= (Cog)Map.FindObject(MapRef.GetObjectListAtPos(pos), cog => cog is Cog);
     }
 
     public static float LerpAngle(float a, float b, float t) {
@@ -50,6 +59,8 @@ public class Lever : WorldObject {
     float? targetRotation = null;
     public float RotationalEnergy { private set; get; } = 0f;
     bool cogAttached = true;
+
+    public float cogRotateMultiplier = 0.75f;
 
     public override void Update(GameTime gameTime) {
         var dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
@@ -89,12 +100,23 @@ public class Lever : WorldObject {
 
         RotationSpeed = MathHelper.Clamp(RotationSpeed, -MaxAngularSpeed, MaxAngularSpeed);
         RotationSpeed *= Damping;
-        Rotation += RotationSpeed * dt;
+
+        Rotate(RotationSpeed * dt);
 
         float momentOfInertia = 1f;
         RotationalEnergy = 0.5f * momentOfInertia * RotationSpeed * RotationSpeed;
 
         base.Update(gameTime);
+    }
+
+    public void Rotate(float value, float dt = 1) {
+        LastRotation = Rotation;
+        Rotation += value * dt;
+        cogweel.ApplyRotation((Rotation - LastRotation) * cogRotateMultiplier, null, true);
+    }
+    public void RotateFromCog(float value, float dt = 1) {
+        Rotation += (value * dt) / cogRotateMultiplier;
+        LastRotation = Rotation;
     }
 
 

@@ -24,15 +24,16 @@ public class Map {
 
     protected int[,] Tiles;
     protected Dictionary<Point, List<WorldObject>> Objects;
-    public void AddObject(Point pct, WorldObject obj) {
+    public WorldObject AddObject(Point pct, WorldObject obj) {
         if (!Objects.TryGetValue(pct, out var list)) {
             list = [];
             Objects[pct] = list;
         }
         list.Add(obj);
+        return obj.SetMap(this).SetMapPosition(pct).SetPosition(GetPosAtTile(pct)+new Vector2(TileSize / 2, TileSize / 2));
     }
 
-    public void AddObjectRel(Map map, Point pct, WorldObject obj) => AddObject(pct + new Point(map.Width/2, map.Height/2), obj);
+    public WorldObject AddObjectRel(Map map, Point pct, WorldObject obj) => AddObject(pct + new Point(map.Width/2, map.Height/2), obj);
 
     protected Generator generator;
 
@@ -130,6 +131,15 @@ public class Map {
             return Game1.Instance.tileRegister.GetIdByName("debug");
         }
         return Tiles[x, y];
+    }
+
+    public List<WorldObject> GetObjectListAtPos(Point loc) => Objects.GetValueOrDefault(loc);
+
+    public static WorldObject FindObject(List<WorldObject> items, Func<WorldObject, bool> f) {
+        foreach (WorldObject obj in items)
+            if (f(obj))
+                return obj;
+        return null;
     }
 
 

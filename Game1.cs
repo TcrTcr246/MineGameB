@@ -57,9 +57,23 @@ public class Game1 : GameTemplate.Game {
 
         map = new Map().Load().Generate();
 
-        map.AddObjectRel(map, new(0, 0), new Lever(objsImage, new(map.WorldWidth / 2, map.WorldHeight / 2)).Load());
-        map.AddObjectRel(map, new(0, 0), new Cog(objsImage, new(map.WorldWidth / 2, map.WorldHeight / 2)).Load());
-        map.AddObjectRel(map, new(0, 0), new Cog(objsImage, new(map.WorldWidth / 2 + map.TileSize, map.WorldHeight / 2)).Load());
+        map.AddObjectRel(map, new(0, 0), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(0, 0), new Lever(objsImage).Load());
+        map.AddObjectRel(map, new(1, 0), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(0, 1), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(1, 1), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(0, 2), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(0, 3), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(-1, 3), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(-2, 3), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(-2, 4), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(-2, 4), new Lever(objsImage).Load());
+        map.AddObjectRel(map, new(-3, 4), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(0, 4), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(0, 5), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(0, 6), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(1, 5), new Cog(objsImage).Load());
+        map.AddObjectRel(map, new(1, 5), new Lever(objsImage).Load());
 
         Camera.Load();
         Camera.MoveHardTo(new Vector2(map.WorldWidth/2, map.WorldHeight/2));
@@ -83,7 +97,8 @@ public class Game1 : GameTemplate.Game {
     protected void RuntimeLoadEffect() {
         Rectangle camRect = Camera.GetViewBounds(GraphicsDevice);
         Rectangle r = map.GetVisibleTileRect(camRect);
-        r = new Rectangle(r.X-1, r.Y-1, r.Width+2, r.Height+2);
+        int border = 1;
+        r = new Rectangle(r.X-border, r.Y-border, r.Width+border*2, r.Height+border*2);
 
         var mapLightningOffset = map.GetPosAtTile(new Point(r.X, r.Y));
         mapLightningRect = new Rectangle(

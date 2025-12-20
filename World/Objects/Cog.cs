@@ -1,6 +1,8 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
+using System.Diagnostics.Metrics;
 
 namespace MineGameB.World.Objects;
 
@@ -12,14 +14,41 @@ public class Cog : WorldObject {
     public float Rotation { get; set; } = 0f;
     public float RotationSpeed { get; set; } = 0f;
     public float Scale { get; set; } = 1f;
+    public float CogRotateMultiplier { get; set; } = 0.75f;
 
-    static int count = 0;
-    public Cog(Texture2D texture, Vector2 position) {
-        RotationSpeed = count%2*2-1f;
+    public Cog(Texture2D texture) {
+        // RotationSpeed = count%2*2-1f;
         this.texture = texture;
-        Position = position;
-        count++;
     }
+
+    public void ApplyRotation(float movement, HashSet<Cog> visited = null, bool fromLever = false) {
+        visited ??= [];
+        if (!visited.Add(this))
+            return;
+
+        Rotation += movement;
+
+        Point[] dirs = [
+            new(0, 1), new(0, -1),
+            new(1, 0), new(-1, 0)
+        ];
+
+        var listA = MapRef.GetObjectListAtPos(TilePosition);
+        if (!fromLever && listA is not null) {
+            var lever = (Lever)Map.FindObject(listA, o => o is Lever);
+            lever?.RotateFromCog(movement);
+        }
+
+        foreach (var d in dirs) {
+            var list = MapRef.GetObjectListAtPos(TilePosition + d);
+            if (list is null)
+                continue;
+
+            var cog = (Cog)Map.FindObject(list, o => o is Cog);
+            cog?.ApplyRotation(-movement, visited);
+        }
+    }
+
 
     public override void Update(GameTime gameTime) {
         float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
