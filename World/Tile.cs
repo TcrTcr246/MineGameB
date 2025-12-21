@@ -25,6 +25,12 @@ public class Tile(Texture2D texture, Rectangle sourceRectangle, string name) {
         return this;
     }
 
+    public Color DrawColor { protected set; get; } = Color.White;
+    public Tile SetDrawColor(Color? color=null) {
+        this.DrawColor = color ?? Color.White;
+        return this;
+    }
+
     public bool IsLightPassable = true;
     public Tile SetLightPassable(bool v = true) {
         IsLightPassable = v;
@@ -32,7 +38,7 @@ public class Tile(Texture2D texture, Rectangle sourceRectangle, string name) {
     }
 
     public void Draw(SpriteBatch spriteBatch, Rectangle position) {
-        spriteBatch.Draw(Texture, position, SourceRectangle, Color.White);
+        spriteBatch.Draw(Texture, position, SourceRectangle, DrawColor);
     }
 
     public static Rectangle GetBounds(Vector2 position, int tileSize) {

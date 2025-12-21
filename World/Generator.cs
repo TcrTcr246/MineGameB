@@ -201,5 +201,13 @@ namespace MineGameB.World {
 
             Tiles = map;
         }
+
+        public void FuncGenerate(Func<int, int, int> f) {
+            for (int x = 0; x < Width; x++) {
+                for (int y = 0; y < Height; y++) {
+                    Tiles[x, y] = f(x, y);
+                }
+            }
+        }
     }
 }

@@ -10,22 +10,14 @@ public class Game1 : GameTemplate.Game {
     public static Game1 Instance { get; private set; }
 
     protected override void Initialize() {
-        Shapes.Initialize(GraphicsDevice);
         Camera.TranslateBackToWorldPos = false;
         base.Initialize();
     }
 
-    protected override void Dispose(bool disposing) {
-        if (disposing)
-            Shapes.Dispose();
-        base.Dispose(disposing);
-    }
-
-
     Map map;
-    Texture2D dotTex, shadowTex;
-    Effect radialEffect;
+    Texture2D dotTex;
     public TileRegister tileRegister;
+    Effects.ShadowEffect shadowEffect;
 
     public Game1() : base() {
         Instance = this;
@@ -35,8 +27,6 @@ public class Game1 : GameTemplate.Game {
         dotTex = new Texture2D(GraphicsDevice, 1, 1);
         dotTex.SetData([Color.White]);
 
-        radialEffect = Content.Load<Effect>("RadialEffect");
-        shadowTex = Content.Load<Texture2D>("shadow");
         Texture2D tileset = Game1.Instance.Content.Load<Texture2D>("tiles2");
         Texture2D objsImage = Content.Load<Texture2D>("objects");
 
@@ -49,14 +39,24 @@ public class Game1 : GameTemplate.Game {
             return register(new Tile(tileset, new(px * t, py * t, t, t), name));
         }
 
-        register(new(tileset, new(0, 64, 2, 2), "debug")).SetMapColor(Color.Magenta);
+        register(new(tileset, new(0, 64, 32, 32), "debug")).SetMapColor(Color.Magenta);
+        register(new(tileset, new(32, 64, 32, 32), "blank_white")).SetMapColor(Color.White).SetDrawColor(Color.White);
+        register(new(tileset, new(32, 64, 32, 32), "blank_blue")).SetMapColor(Color.AliceBlue).SetDrawColor(Color.AliceBlue);
         newTile("floor1", 0, 0).SetMapColor(Color.DarkGray);
         newTile("floor2", 1, 0).SetMapColor(Color.DarkGray);
         newTile("coper", 2, 0).SetMapColor(Color.Orange);
         newTile("wall", 3, 0).SetMapColor(Color.Gray).SetSolid().SetLightPassable(false);
 
-        map = new Map().Load();
+        map = new Map().Load()
+            .NewGenerate((x, y) => {
+                return tileRegister.GetIdByName((x+y) % 2 == 0 ? "blank_white" : "blank_blue");
+            });
 
+        map.AddObjectRel(new(-4, 0), new Cog(objsImage));
+        map.AddObjectRel(new(-4, 0), new Rotator(objsImage));
+        map.AddObjectRel(new(-3, 0), new Cog(objsImage));
+        map.AddObjectRel(new(-2, 0), new Cog(objsImage));
+        map.AddObjectRel(new(-1, 0), new Cog(objsImage));
         map.AddObjectRel(new(0, 0), new Cog(objsImage));
         map.AddObjectRel(new(0, 0), new Lever(objsImage));
         map.AddObjectRel(new(1, 0), new Cog(objsImage));
@@ -65,11 +65,22 @@ public class Game1 : GameTemplate.Game {
         map.AddObjectRel(new(2, 3), new BigCog(objsImage));
         map.AddObjectRel(new(3, 2), new Cog(objsImage));
 
+        map.AddObjectRel(new(3, 4), new Cog(objsImage));
+        map.AddObjectRel(new(4, 5), new BigCog(objsImage));
+        map.AddObjectRel(new(3, 6), new Cog(objsImage));
+        map.AddObjectRel(new(4, 7), new BigCog(objsImage));
+        map.AddObjectRel(new(3, 8), new Cog(objsImage));
+        map.AddObjectRel(new(4, 9), new BigCog(objsImage));
+
         map.AddObjectRel(new(3, 0), new Cog(objsImage));
         map.AddObjectRel(new(4, 0), new Cog(objsImage));
         map.AddObjectRel(new(3, -1), new Cog(objsImage));
         map.AddObjectRel(new(4, -1), new Cog(objsImage));
         map.AddObjectRel(new(4, -1), new Lever(objsImage));
+
+
+        var shadowTex = Content.Load<Texture2D>("shadow");
+        shadowEffect = new(Content.Load<Effect>("RadialEffect"), map, shadowTex);
 
         Camera.Load();
         Camera.MoveHardTo(new Vector2(map.WorldWidth/2, map.WorldHeight/2));
@@ -89,47 +100,15 @@ public class Game1 : GameTemplate.Game {
         base.Update(gameTime);
     }
 
-    Rectangle mapLightningRect;
-    protected void RuntimeLoadEffect() {
-        Rectangle camRect = Camera.GetViewBounds(GraphicsDevice);
-        Rectangle r = map.GetVisibleTileRect(camRect);
-        int border = 1;
-        r = new Rectangle(r.X-border, r.Y-border, r.Width+border*2, r.Height+border*2);
-
-        var mapLightningOffset = map.GetPosAtTile(new Point(r.X, r.Y));
-        mapLightningRect = new Rectangle(
-            (int)mapLightningOffset.X,
-            (int)mapLightningOffset.Y,
-            r.Width * map.TileSize,
-            r.Height * map.TileSize
-        );
-
-        map.BuildVisibleLightTexture(r);
-
-        // bind texture to shader slot s0
-        GraphicsDevice.Textures[0] = shadowTex;
-
-        // shader params
-        radialEffect.Parameters["TileSize"].SetValue(1f / (map.TileSize/Camera.Zoom));
-        radialEffect.Parameters["Softness"].SetValue(2f);
-    }
-
     protected override void Draw(GameTime gameTime) {
         GraphicsDevice.Clear(Color.Black);
         DrawBackground(Color.CornflowerBlue);
-
-        if (map.InWorldZoom)
-            RuntimeLoadEffect();
 
         _spriteBatch.Begin(transformMatrix: CameraTransform, samplerState: SamplerState.PointClamp);
         map.Draw(_spriteBatch);
         _spriteBatch.End();
 
-        _spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, transformMatrix: CameraTransform, effect: radialEffect);
-        if (map.InWorldZoom) {
-            _spriteBatch.Draw(map.LightTexture, mapLightningRect, Color.White);
-        }
-        _spriteBatch.End();
+        shadowEffect.Draw(_spriteBatch);
 
         base.Draw(gameTime);
     }

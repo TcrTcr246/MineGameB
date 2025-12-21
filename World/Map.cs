@@ -51,6 +51,12 @@ public class Map {
         WorldHeight = Height * TileSize;
         return this;
     }
+    public Map NewGenerate(Func<int, int, int> f) {
+        generator.FuncGenerate(f);
+        Tiles = generator.Tiles;
+        return this;
+    }
+
     public Map Generate() {
         generator.Generate();
         Tiles = generator.Tiles;

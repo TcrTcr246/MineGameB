@@ -1,15 +1,13 @@
-﻿using GameTemplate;
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
-using System.Diagnostics;
 
 namespace MineGameB.World.Objects;
 
 public class Lever : WorldObject {
     private Texture2D texture;
-    private Rectangle baseASource, baseBSource, armSource, armNodeSource;
+    protected Rectangle baseASource, baseBSource, armSource, armNodeSource;
     public float Rotation { get; set; } = -MathHelper.PiOver4;
     public float LastRotation { get; set; }
     public float Scale { get; set; } = 1f;
@@ -59,7 +57,7 @@ public class Lever : WorldObject {
     bool isDragging;
     float? targetRotation = null;
     public float RotationalEnergy { private set; get; } = 0f;
-    bool cogAttached = true;
+    protected bool cogAttached = true;
 
     public override void Update(GameTime gameTime) {
         var dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
@@ -118,79 +116,85 @@ public class Lever : WorldObject {
         LastRotation = Rotation;
     }
 
+    protected void DrawBaseA(SpriteBatch spriteBatch) {
+        spriteBatch.Draw(
+            texture,
+            Position,
+            baseASource,
+            Color.White,
+            0f,
+            basePivot,
+            Scale,
+            SpriteEffects.None,
+            0f
+        );
+    }
 
     public override void DrawLayer(SpriteBatch spriteBatch, int layer) {
-        if (layer == -2) {
-            if (!cogAttached)
+        switch(layer) {
+            case -2:
+                if (!cogAttached)
+                    DrawBaseA(spriteBatch);
+                break;
+            case 0:
+                // arm rotates around left edge, but positioned relative to base center
                 spriteBatch.Draw(
                     texture,
                     Position,
-                    baseASource,
+                    armSource,
                     Color.White,
-                    0f,
-                    basePivot,
-                    Scale,
+                    Rotation,
+                    armPivot,
+                    new Vector2(Scale * armLength / armSource.Width, Scale),
                     SpriteEffects.None,
                     0f
                 );
-        } else if (layer == 0) {
-            // arm rotates around left edge, but positioned relative to base center
-            spriteBatch.Draw(
-                texture,
-                Position,
-                armSource,
-                Color.White,
-                Rotation,
-                armPivot,
-                new Vector2(Scale * armLength / armSource.Width, Scale),
-                SpriteEffects.None,
-                0f
-            );
 
-            if (!cogAttached) {
-                // base centered at Position
+                if (!cogAttached) {
+                    // base centered at Position
+                    spriteBatch.Draw(
+                        texture,
+                        Position,
+                        baseBSource,
+                        Color.White,
+                        0f,
+                        basePivot,
+                        Scale,
+                        SpriteEffects.None,
+                        0f
+                    );
+                }
+
                 spriteBatch.Draw(
                     texture,
                     Position,
                     baseBSource,
                     Color.White,
-                    0f,
+                    Rotation,
                     basePivot,
                     Scale,
                     SpriteEffects.None,
                     0f
                 );
-            }
 
-            spriteBatch.Draw(
-                texture,
-                Position,
-                baseBSource,
-                Color.White,
-                Rotation,
-                basePivot,
-                Scale,
-                SpriteEffects.None,
-                0f
-            );
-
-            Vector2 armEnd =
-            Position +
-            Vector2.Transform(
-                new Vector2(armLength * Scale, 0f),
-                Matrix.CreateRotationZ(Rotation)
-            );
-            spriteBatch.Draw(
-                texture,
-                armEnd,
-                armNodeSource,
-                Color.White,
-                Rotation,
-                armNodePivot,
-                Scale,
-                SpriteEffects.None,
-                0f
-            );
+                Vector2 armEnd =
+                Position +
+                Vector2.Transform(
+                    new Vector2(armLength * Scale, 0f),
+                    Matrix.CreateRotationZ(Rotation)
+                );
+                spriteBatch.Draw(
+                    texture,
+                    armEnd,
+                    armNodeSource,
+                    Color.White,
+                    Rotation,
+                    armNodePivot,
+                    Scale,
+                    SpriteEffects.None,
+                    0f
+                );
+            break;
         }
     }
 
