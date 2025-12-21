@@ -19,7 +19,7 @@ public class Lever : WorldObject {
 
     public Cog cogweel = null;
 
-    public Lever(Texture2D texture, Cog cogweel=null) {
+    public Lever(Texture2D texture, Cog cogweel=null) : base() {
         this.texture = texture;
         LastRotation = Rotation;
         if (cogweel is not null)
@@ -33,6 +33,7 @@ public class Lever : WorldObject {
         basePivot = new Vector2(baseASource.Width / 2f, baseASource.Height / 2f);
         armPivot = new Vector2(0f, armSource.Height / 2f);
         armNodePivot = new Vector2(armSource.Width / 2f, armSource.Height / 2f);
+        Load();
     }
 
     public override void OnSetMapPosition(Point pos) {
@@ -59,8 +60,6 @@ public class Lever : WorldObject {
     float? targetRotation = null;
     public float RotationalEnergy { private set; get; } = 0f;
     bool cogAttached = true;
-
-    public float cogRotateMultiplier = 0.75f;
 
     public override void Update(GameTime gameTime) {
         var dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
@@ -112,10 +111,10 @@ public class Lever : WorldObject {
     public void Rotate(float value, float dt = 1) {
         LastRotation = Rotation;
         Rotation += value * dt;
-        cogweel.ApplyRotation((Rotation - LastRotation) * cogRotateMultiplier, null, true);
+        cogweel.ApplyRotation((Rotation - LastRotation) * cogweel.CogRotateMultiplier, null, true);
     }
     public void RotateFromCog(float value, float dt = 1) {
-        Rotation += (value * dt) / cogRotateMultiplier;
+        Rotation += (value * dt) / cogweel.CogRotateMultiplier;
         LastRotation = Rotation;
     }
 
@@ -195,7 +194,7 @@ public class Lever : WorldObject {
         }
     }
 
-    public Rectangle GetBounds() {
+    public override Rectangle GetBounds() {
         return new Rectangle(
             (int)(Position.X - basePivot.X * Scale),
             (int)(Position.Y - basePivot.Y * Scale),

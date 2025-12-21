@@ -33,7 +33,7 @@ public class Map {
         return obj.SetMap(this).SetMapPosition(pct).SetPosition(GetPosAtTile(pct)+new Vector2(TileSize / 2, TileSize / 2));
     }
 
-    public WorldObject AddObjectRel(Map map, Point pct, WorldObject obj) => AddObject(pct + new Point(map.Width/2, map.Height/2), obj);
+    public WorldObject AddObjectRel(Point pct, WorldObject obj) => AddObject(pct + new Point(Width/2, Height/2), obj);
 
     protected Generator generator;
 
@@ -182,20 +182,24 @@ public class Map {
 
             int layerRange = 10;
 
-            foreach (var o in Objects.Values)
+            foreach (var list in Objects.Values)
                 for (int n = -layerRange; n < 0; n++)
-                    foreach (var o2 in o)
-                        o2.DrawLayer(spriteBatch, n);
+                    foreach (var o in list)
+                        DrawIfVisible(o, () => o.DrawLayer(spriteBatch, n));
 
-            foreach (var o in Objects.Values)
-                foreach (var o2 in o)
-                    o2.Draw(spriteBatch);
+            foreach (var list in Objects.Values)
+                foreach (var o in list)
+                    DrawIfVisible(o, () => o.Draw(spriteBatch));
 
-            foreach (var o in Objects.Values)
+            foreach (var list in Objects.Values)
                 for (int n = 0; n <= layerRange; n++)
-                    foreach (var o2 in o)
-                        o2.DrawLayer(spriteBatch, n);
+                    foreach (var o in list)
+                        DrawIfVisible(o, () => o.DrawLayer(spriteBatch, n));
         }
+    }
+    static void DrawIfVisible(WorldObject o, Action draw) {
+        if (Game1.Instance.Camera.GetViewBounds(Game1.Instance.GraphicsDevice).Intersects(o.GetBounds()))
+            draw();
     }
 
     public void DrawMap(SpriteBatch spriteBatch, Rectangle position) {

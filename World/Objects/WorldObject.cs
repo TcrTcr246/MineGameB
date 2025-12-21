@@ -32,4 +32,8 @@ public class WorldObject {
 
     public virtual void DrawLayer(SpriteBatch spriteBatch, int layer) { }
     public virtual void Draw(SpriteBatch spriteBatch) { }
+
+    public virtual Rectangle GetBounds() {
+        return new((int)Position.X, (int)Position.Y, 0, 0);
+    }
 }
