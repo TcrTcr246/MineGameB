@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
+using MineGameB.Misc;
 
 namespace MineGameB.World.Objects;
 
@@ -17,11 +18,13 @@ public class Lever : WorldObject {
 
     public Cog cogweel = null;
 
-    public Lever(Texture2D texture, Cog cogweel=null) : base() {
+    // Optimization: only rotate cog when rotation change is significant
+    private const float MinRotationDelta = 0.001f;
+    private float accumulatedRotation = 0f;
+
+    public Lever(Texture2D texture) : base() {
         this.texture = texture;
         LastRotation = Rotation;
-        if (cogweel is not null)
-            this.cogweel = cogweel;
 
         baseASource = new Rectangle(0, 0, 32, 32);
         baseBSource = new Rectangle(32, 0, 32, 32);
@@ -34,23 +37,17 @@ public class Lever : WorldObject {
         Load();
     }
 
+    public static Cog GetCog(Map map, Point pos) {
+        return (Cog)Map.FindObject(map.GetObjectListAtPos(pos), cog => cog is Cog);
+    }
+
     public override void OnSetMapPosition(Point pos) {
-        cogweel ??= (Cog)Map.FindObject(MapRef.GetObjectListAtPos(pos), cog => cog is Cog);
+        cogweel = GetCog(MapRef, pos);
     }
-
-    public static float LerpAngle(float a, float b, float t) {
-        float diff = b - a;
-        while (diff < -MathHelper.Pi)
-            diff += MathHelper.TwoPi;
-        while (diff > MathHelper.Pi)
-            diff -= MathHelper.TwoPi;
-        return a + diff * t;
-    }
-
 
     private float RotationSpeed = 0f;
-    private float MaxAngularSpeed = MathHelper.Pi/3;
-    private float AngularAcceleration = MathHelper.Pi*1.5f;
+    private float MaxAngularSpeed = MathHelper.Pi / 3;
+    private float AngularAcceleration = MathHelper.Pi * 1.5f;
     private float Damping = 0.98f;
 
     static Lever activeLever = null;
@@ -58,6 +55,10 @@ public class Lever : WorldObject {
     float? targetRotation = null;
     public float RotationalEnergy { private set; get; } = 0f;
     protected bool cogAttached = true;
+
+    // Cache for arm node circle to avoid recalculating every frame
+    private Circle armNodeCircle;
+    private float lastCircleRotation = float.NaN;
 
     public override void Update(GameTime gameTime) {
         var dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
@@ -75,7 +76,7 @@ public class Lever : WorldObject {
             if (activeLever == this) {
                 activeLever = null;
                 isDragging = false;
-                targetRotation = null; // release, no hard stop
+                targetRotation = null;
             }
         }
 
@@ -109,11 +110,24 @@ public class Lever : WorldObject {
     public void Rotate(float value, float dt = 1) {
         LastRotation = Rotation;
         Rotation += value * dt;
-        cogweel.ApplyRotation((Rotation - LastRotation) * cogweel.CogRotateMultiplier, null, true);
+
+        // Optimization: accumulate small rotations and only apply when significant
+        if (cogweel != null) {
+            float rotationDelta = (Rotation - LastRotation) * cogweel.CogRotateMultiplier;
+            accumulatedRotation += rotationDelta;
+
+            if (Math.Abs(accumulatedRotation) >= MinRotationDelta) {
+                cogweel.ApplyRotation(accumulatedRotation, null, true);
+                accumulatedRotation = 0f;
+            }
+        }
     }
+
     public void RotateFromCog(float value, float dt = 1) {
-        Rotation += (value * dt) / cogweel.CogRotateMultiplier;
-        LastRotation = Rotation;
+        if (cogweel != null) {
+            Rotation += value * dt / cogweel.CogRotateMultiplier;
+            LastRotation = Rotation;
+        }
     }
 
     protected void DrawBaseA(SpriteBatch spriteBatch) {
@@ -130,13 +144,27 @@ public class Lever : WorldObject {
         );
     }
 
+    protected void DrawBaseB(SpriteBatch spriteBatch) {
+        spriteBatch.Draw(
+            texture,
+            Position,
+            baseBSource,
+            Color.White,
+            0f,
+            basePivot,
+            Scale,
+            SpriteEffects.None,
+            0f
+        );
+    }
+
     public override void DrawLayer(SpriteBatch spriteBatch, int layer) {
-        switch(layer) {
+        switch (layer) {
             case -2:
                 if (!cogAttached)
                     DrawBaseA(spriteBatch);
                 break;
-            case 0:
+            case 2:
                 // arm rotates around left edge, but positioned relative to base center
                 spriteBatch.Draw(
                     texture,
@@ -151,18 +179,7 @@ public class Lever : WorldObject {
                 );
 
                 if (!cogAttached) {
-                    // base centered at Position
-                    spriteBatch.Draw(
-                        texture,
-                        Position,
-                        baseBSource,
-                        Color.White,
-                        0f,
-                        basePivot,
-                        Scale,
-                        SpriteEffects.None,
-                        0f
-                    );
+                    DrawBaseB(spriteBatch);
                 }
 
                 spriteBatch.Draw(
@@ -178,11 +195,11 @@ public class Lever : WorldObject {
                 );
 
                 Vector2 armEnd =
-                Position +
-                Vector2.Transform(
-                    new Vector2(armLength * Scale, 0f),
-                    Matrix.CreateRotationZ(Rotation)
-                );
+                    Position +
+                    Vector2.Transform(
+                        new Vector2(armLength * Scale, 0f),
+                        Matrix.CreateRotationZ(Rotation)
+                    );
                 spriteBatch.Draw(
                     texture,
                     armEnd,
@@ -194,7 +211,7 @@ public class Lever : WorldObject {
                     SpriteEffects.None,
                     0f
                 );
-            break;
+                break;
         }
     }
 
@@ -207,31 +224,23 @@ public class Lever : WorldObject {
         );
     }
 
-    public class Circle {
-        public Vector2 Center;
-        public float Radius;
-
-        public Circle(Vector2 center, float radius) {
-            Center = center;
-            Radius = radius;
-        }
-
-        public bool Contains(Vector2 p) {
-            return Vector2.DistanceSquared(p, Center) <= Radius * Radius;
-        }
-    }
-
     Circle GetArmNodeCircle() {
-        Vector2 armEnd =
-            Position +
-            Vector2.Transform(
-                new Vector2(armLength * Scale, 0f),
-                Matrix.CreateRotationZ(Rotation)
-            );
+        // Cache circle calculation when rotation hasn't changed
+        if (armNodeCircle == null || Math.Abs(lastCircleRotation - Rotation) > 0.01f) {
+            Vector2 armEnd =
+                Position +
+                Vector2.Transform(
+                    new Vector2(armLength * Scale, 0f),
+                    Matrix.CreateRotationZ(Rotation)
+                );
 
-        return new Circle(
-            armEnd,
-            armNodeSource.Width * Scale * 0.2f
-        );
+            armNodeCircle = new Circle(
+                armEnd,
+                armNodeSource.Width * Scale * 0.2f
+            );
+            lastCircleRotation = Rotation;
+        }
+
+        return armNodeCircle;
     }
 }

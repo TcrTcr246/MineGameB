@@ -12,14 +12,35 @@ public class Cog : WorldObject {
     protected Rectangle source;
     protected Vector2 pivot;
 
+    // Cache for adjacent cogs to avoid repeated lookups
+    private List<Cog> cachedAdjacentCogs;
+    private List<BigCog> cachedAdjacentBigCogs;
+    private Lever cachedLever;
+    private bool cacheDirty = true;
+    protected bool Active = true;
+    public void SetActive(bool active) => Active = active;
+    public bool IsActive() => Active;
+    public bool ToggleActive() => Active = !Active;
+
+    // Static arrays to avoid allocation
+    private static readonly Point[] orthogonalDirs = [
+        new(0, 1), new(0, -1),
+        new(1, 0), new(-1, 0)
+    ];
+
+    private static readonly Point[] diagonalDirs = [
+        new(-1, 1), new(1, 1),
+        new(-1, -1), new(1, -1)
+    ];
+
     public float Rotation { get; protected set; } = 0f;
+    public void SetRotation(float rotation) => Rotation = rotation;
     public float RotationSpeed { get; protected set; } = 0f;
     public float Scale { get; protected set; } = 1f;
     public float CogRotateMultiplier { get; protected set; }
     public int Teet { get; protected set; }
 
     public Cog(Texture2D texture) : base() {
-        // RotationSpeed = count%2*2-1f;
         source = new(96, 0, 48, 48);
         pivot = new(24f, 24f);
         Teet = 8;
@@ -31,6 +52,7 @@ public class Cog : WorldObject {
     public override WorldObject Load() {
         int x = TilePosition.X, y = TilePosition.Y;
         AddRatioOnLoad(x, y);
+        cacheDirty = true;
         return base.Load();
     }
 
@@ -39,56 +61,98 @@ public class Cog : WorldObject {
             Rotation += MathHelper.ToRadians(180f / (Teet * 2));
     }
 
-    protected void RotateAroundGears(float movement, HashSet<Cog> visited = null) {
-        Point[] dirs = [
-            new(0, 1), new(0, -1),
-            new(1, 0), new(-1, 0)
-        ];
+    // Call this when gears are added/removed/moved
+    public void InvalidateCache() {
+        cacheDirty = true;
+    }
 
-        foreach (var d in dirs) {
-            var list = MapRef.GetObjectListAtPos(TilePosition + d);
-            if (list is null)
-                continue;
-
-            ((Cog)Map.FindObject(list, o => o is Cog))?.ApplyRotation(-movement, visited);
+    // Call this on all gears in an area when the configuration changes
+    public static void InvalidateAreaCache(Map map, Point center, int radius = 2) {
+        for (int x = -radius; x <= radius; x++) {
+            for (int y = -radius; y <= radius; y++) {
+                var list = map.GetObjectListAtPos(center + new Point(x, y));
+                if (list != null) {
+                    var cog = Map.FindObject(list, o => o is Cog) as Cog;
+                    cog?.InvalidateCache();
+                }
+            }
         }
     }
 
-    protected void RotateAroundBigGears(float movement, HashSet<Cog> visited = null) {
-        Point[] dirs = [
-            new(-1, 1), new(1, 1),
-            new(-1, -1), new(1, -1)
-        ];
+    private void RebuildCache() {
+        if (!cacheDirty)
+            return;
 
-        foreach (var d in dirs) {
+        cachedAdjacentCogs = new List<Cog>(4);
+        cachedAdjacentBigCogs = new List<BigCog>(4);
+        cachedLever = null;
+
+        // Cache orthogonal cogs
+        foreach (var d in orthogonalDirs) {
             var list = MapRef.GetObjectListAtPos(TilePosition + d);
             if (list is null)
                 continue;
 
-            var gear = ((BigCog)Map.FindObject(list, o => o is BigCog));
-            gear?.ApplyRotation(-movement*Teet/gear.Teet, visited);
+            if (Map.FindObject(list, o => o is Cog) is Cog cog)
+                cachedAdjacentCogs.Add(cog);
+        }
+
+        // Cache diagonal big cogs
+        foreach (var d in diagonalDirs) {
+            var list = MapRef.GetObjectListAtPos(TilePosition + d);
+            if (list is null)
+                continue;
+
+            if (Map.FindObject(list, o => o is BigCog) is BigCog bigCog)
+                cachedAdjacentBigCogs.Add(bigCog);
+        }
+
+        // Cache lever at current position
+        var listA = MapRef.GetObjectListAtPos(TilePosition);
+        if (listA != null) {
+            cachedLever = Map.FindObject(listA, o => o is Lever) as Lever;
+        }
+
+        cacheDirty = false;
+    }
+
+    protected void RotateAroundGears(float movement, HashSet<Cog> visited) {
+        RebuildCache();
+
+        for (int i = 0; i < cachedAdjacentCogs.Count; i++) {
+            cachedAdjacentCogs[i]?.ApplyRotation(-movement, visited);
+        }
+    }
+
+    protected void RotateAroundBigGears(float movement, HashSet<Cog> visited) {
+        RebuildCache();
+
+        for (int i = 0; i < cachedAdjacentBigCogs.Count; i++) {
+            var gear = cachedAdjacentBigCogs[i];
+            gear?.ApplyRotation(-movement * Teet / gear.Teet, visited);
         }
     }
 
     public void ApplyRotation(float movement, HashSet<Cog> visited = null, bool fromLever = false) {
+        if (!Active)
+            return;
+
         visited ??= [];
+
         if (!visited.Add(this))
             return;
 
-        var listA = MapRef.GetObjectListAtPos(TilePosition);
-        if (!fromLever && listA is not null) {
-            var lever = (Lever)Map.FindObject(listA, o => o is Lever);
-            lever?.RotateFromCog(movement);
+        if (!fromLever) {
+            RebuildCache();
+            cachedLever?.RotateFromCog(movement);
         }
 
         Rotation += movement;
-
         OnRotationAplication(movement, visited);
-
         Rotation = MathHelper.WrapAngle(Rotation);
     }
 
-    public virtual void OnRotationAplication(float movement, HashSet<Cog> visited = null) {
+    public virtual void OnRotationAplication(float movement, HashSet<Cog> visited) {
         RotateAroundGears(movement, visited);
         RotateAroundBigGears(movement, visited);
     }
@@ -99,20 +163,18 @@ public class Cog : WorldObject {
         base.Update(gameTime);
     }
 
-    public override void DrawLayer(SpriteBatch spriteBatch, int layer) {
-        if (layer == -4) {
-            spriteBatch.Draw(
-                texture,
-                Position,
-                source,
-                Color.White,
-                Rotation,
-                pivot,
-                Scale,
-                SpriteEffects.None,
-                0f
-            );
-        }
+    public override void Draw(SpriteBatch spriteBatch) {
+        spriteBatch.Draw(
+            texture,
+            Position,
+            source,
+            Color.White,
+            Rotation,
+            pivot,
+            Scale,
+            SpriteEffects.None,
+            0f
+        );
     }
 
     public override Rectangle GetBounds() {
