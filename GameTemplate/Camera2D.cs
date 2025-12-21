@@ -16,7 +16,7 @@ public class Camera2D {
     public Rectangle DeadZone = new(40, 40, 40, 40);
 
     public bool TranslateBackToWorldPos = false;
-    public Rectangle Screen => new(0, 0, Letterbox.VirtualWidth, Letterbox.VirtualHeight);
+    public static Rectangle Screen => new(0, 0, Letterbox.VirtualWidth, Letterbox.VirtualHeight);
 
     Vector2 shake;
     float shakeTimer = 0f;
@@ -24,7 +24,7 @@ public class Camera2D {
 
     static readonly Random rng = new();
 
-    public Vector2 MouseWorld {
+    public static Vector2 MouseWorld {
         get {
             MouseState ms = Mouse.GetState();
             return WorldToScreenPoint(new(ms.X, ms.Y));
@@ -115,11 +115,11 @@ public class Camera2D {
         Position += move * speed * dt;
     }
 
-    const float uniqueFloatCode = -1.1234567f;
+    const float uniqueFloatCode = float.MinValue;
     float TargetZoom = uniqueFloatCode;
     float scrollLerpSpeed = 3f;
 
-    public void ScaleIndependent(GameTime gameTime, float scrollSpeed=100f, float lerpSpeed=7f, float minimum=0.1f, float maximum=2.5f) {
+    public void ScaleIndependent(GameTime gameTime, float scrollSpeed=100f, float lerpSpeed=7f, float minimum=0.01f, float maximum=2.5f) {
         int sc = ms.ScrollWheelValue - lastMs.ScrollWheelValue;
         _ = gameTime;
 
@@ -146,7 +146,7 @@ public class Camera2D {
         // (TranslateBackToWorldPos ? - letterboxSize/2 : Vector3.Zero)
     }
 
-    public Vector2 WorldToScreenPoint(Vector2 p) {
+    public static Vector2 WorldToScreenPoint(Vector2 p) {
         Vector2 pct = new Vector2(p.X, p.Y) - new Vector2(Letterbox.OffsetX, Letterbox.OffsetY);
         Matrix view = Game1.Instance.Camera.GetTransform(Game1.Instance.GraphicsDevice);
         Matrix.Invert(ref view, out Matrix inverseView);
@@ -161,8 +161,6 @@ public class Camera2D {
     }
 
     public Rectangle GetViewBounds(GraphicsDevice gd) {
-        _ = gd;
-
         Matrix transform = GetTransform(gd);
 
         // invert matrix: screen -> world

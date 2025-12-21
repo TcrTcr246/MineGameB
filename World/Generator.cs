@@ -9,6 +9,8 @@ namespace MineGameB.World {
         public int Height { get; set; }
         public int PixelSize { get; set; }
 
+        private static int[] permutation;
+
         public Generator(int width, int height, int pixelSize) {
             Width = width;
             Height = height;
@@ -16,7 +18,7 @@ namespace MineGameB.World {
             Tiles = new int[width, height];
         }
 
-        public float _scale = 10f;
+        public float _scale = 50f;
         public int _octaves = 4;
         public float _persistence = .5f;
         public float _lacunarity = 2f;
@@ -39,6 +41,11 @@ namespace MineGameB.World {
             return id;
         }
 
+        static float Smoothstep(float edge0, float edge1, float x) {
+            x = Math.Clamp((x - edge0) / (edge1 - edge0), 0f, 1f);
+            return x * x * (3f - 2f * x);
+        }
+
         public void Generate(float scale = float.NaN, int octaves = int.MinValue, float persistence = float.NaN, float lacunarity = float.NaN) {
             scale = float.IsNaN(scale) ? _scale : scale;
             octaves = octaves == int.MinValue ? _octaves : octaves;
@@ -53,13 +60,47 @@ namespace MineGameB.World {
 
             var rng = new Random(_seed == int.MinValue ? new Random().Next() : (int)_seed);
 
+            // Initialize permutation table with seed
+            InitializePermutation(rng);
+
             float[,] noise = GenerateNoiseMap(Width, Height, rng, scale, octaves, persistence, lacunarity);
 
             for (int x = 0; x < Width; x++) {
                 for (int y = 0; y < Height; y++) {
                     float value = noise[x, y];
+
+                    float edgeDistX = Math.Min(x, Width - 1 - x) / (Width * 0.5f);
+                    float edgeDistY = Math.Min(y, Height - 1 - y) / (Height * 0.5f);
+                    float edgeDist = Math.Min(edgeDistX, edgeDistY);
+
+                    // Apply smooth falloff
+                    float falloff = Smoothstep(0f, 0.2f, edgeDist);
+                    value /= falloff;
+
                     Tiles[x, y] = GetMap(rng, new(x, y), value, bands, bandWidth);
                 }
+            }
+        }
+
+        private static void InitializePermutation(Random rng) {
+            permutation = new int[512];
+            int[] p = new int[256];
+
+            for (int i = 0; i < 256; i++) {
+                p[i] = i;
+            }
+
+            // Shuffle using Fisher-Yates
+            for (int i = 255; i > 0; i--) {
+                int j = rng.Next(i + 1);
+                int temp = p[i];
+                p[i] = p[j];
+                p[j] = temp;
+            }
+
+            // Duplicate for easier indexing
+            for (int i = 0; i < 512; i++) {
+                permutation[i] = p[i % 256];
             }
         }
 
@@ -67,8 +108,6 @@ namespace MineGameB.World {
             float scale, int octaves, float persistence, float lacunarity) {
 
             float[,] noiseMap = new float[width, height];
-
-            // Perlin noise parameters
 
             Vector2[] octaveOffsets = new Vector2[octaves];
             for (int i = 0; i < octaves; i++) {
@@ -98,8 +137,49 @@ namespace MineGameB.World {
                 }
             }
 
-            // Normalize to 0-1 range
             return NormalizeNoiseMap(noiseMap, width, height);
+        }
+
+        private static float PerlinNoise(float x, float y) {
+            // Find unit square that contains point
+            int xi = (int)Math.Floor(x) & 255;
+            int yi = (int)Math.Floor(y) & 255;
+
+            // Find relative x,y in square
+            float xf = x - (float)Math.Floor(x);
+            float yf = y - (float)Math.Floor(y);
+
+            // Fade curves for x and y
+            float u = Fade(xf);
+            float v = Fade(yf);
+
+            // Hash coordinates of 4 square corners
+            int aa = permutation[permutation[xi] + yi];
+            int ab = permutation[permutation[xi] + yi + 1];
+            int ba = permutation[permutation[xi + 1] + yi];
+            int bb = permutation[permutation[xi + 1] + yi + 1];
+
+            // Blend results from 4 corners
+            float x1 = Lerp(Grad(aa, xf, yf), Grad(ba, xf - 1, yf), u);
+            float x2 = Lerp(Grad(ab, xf, yf - 1), Grad(bb, xf - 1, yf - 1), u);
+
+            return Lerp(x1, x2, v);
+        }
+
+        private static float Fade(float t) {
+            return t * t * t * (t * (t * 6 - 15) + 10);
+        }
+
+        private static float Lerp(float a, float b, float t) {
+            return a + t * (b - a);
+        }
+
+        private static float Grad(int hash, float x, float y) {
+            // Convert low 4 bits of hash into 8 gradient directions
+            int h = hash & 7;
+            float u = h < 4 ? x : y;
+            float v = h < 4 ? y : x;
+            return ((h & 1) == 0 ? u : -u) + ((h & 2) == 0 ? v : -v);
         }
 
         public static float[,] FillSmallGaps(float[,] noise, int width, int height, float threshold = 0.5f, int maxGap = 2) {
@@ -117,7 +197,7 @@ namespace MineGameB.World {
                             int gapLength = x - gapStart;
                             if (gapLength <= maxGap) {
                                 for (int gx = gapStart; gx < x; gx++) {
-                                    result[gx, y] = threshold; // fill the gap
+                                    result[gx, y] = threshold;
                                 }
                             }
                             gapStart = -1;
@@ -150,22 +230,16 @@ namespace MineGameB.World {
             return result;
         }
 
-
-        private static float PerlinNoise(float x, float y) {
-            // Simplified Perlin-like noise using sine waves
-            return (float)(Math.Sin(x * 0.1) * Math.Cos(y * 0.1) +
-                           Math.Sin(x * 0.3 + 2) * Math.Cos(y * 0.3 + 2) * 0.5 +
-                           Math.Sin(x * 0.7 + 5) * Math.Cos(y * 0.7 + 5) * 0.25) / 1.75f;
-        }
-
         private static float[,] NormalizeNoiseMap(float[,] noiseMap, int width, int height) {
             float min = float.MaxValue;
             float max = float.MinValue;
 
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
-                    if (noiseMap[x, y] < min) min = noiseMap[x, y];
-                    if (noiseMap[x, y] > max) max = noiseMap[x, y];
+                    if (noiseMap[x, y] < min)
+                        min = noiseMap[x, y];
+                    if (noiseMap[x, y] > max)
+                        max = noiseMap[x, y];
                 }
             }
 

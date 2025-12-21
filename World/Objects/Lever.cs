@@ -63,7 +63,7 @@ public class Lever : WorldObject {
     public override void Update(GameTime gameTime) {
         var dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
         var mouse = Mouse.GetState();
-        Vector2 mouseWorld = Game1.Instance.Camera.MouseWorld;
+        Vector2 mouseWorld = GameTemplate.Camera2D.MouseWorld;
 
         if (mouse.LeftButton == ButtonState.Pressed) {
             if (activeLever == null && GetArmNodeCircle().Contains(mouseWorld)) {

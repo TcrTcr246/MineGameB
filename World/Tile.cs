@@ -24,16 +24,28 @@ public class Tile(Texture2D texture, Rectangle sourceRectangle, string name) {
         MapColor = color;
         return this;
     }
+    public Color GetMapColor() => MapColor;
 
-    public Color DrawColor { protected set; get; } = Color.White;
+    public Color DrawColor { get; protected set; } = Color.White;
     public Tile SetDrawColor(Color? color=null) {
-        this.DrawColor = color ?? Color.White;
+        DrawColor = color ?? Color.White;
         return this;
     }
 
     public bool IsLightPassable = true;
     public Tile SetLightPassable(bool v = true) {
         IsLightPassable = v;
+        return this;
+    }
+
+    public bool IsBreakable { get; protected set; } = false;
+    public float Durity { get; protected set; } = float.NaN;
+    public Tile SetDurity(float? v = null) {
+        IsBreakable = v is not null;
+        if (IsBreakable)
+            Durity = (float)v;
+        else
+            Durity = float.NaN;
         return this;
     }
 

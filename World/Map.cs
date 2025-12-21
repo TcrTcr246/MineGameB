@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using MineGameB.Scenes;
 using MineGameB.World.Objects;
+using MineGameB.World.Tiles;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,8 +11,8 @@ using System.Linq;
 namespace MineGameB.World;
 public class Map {
     public int TileSize { get; private set; } = 32;
-    public int Width { get; private set; } = 375;
-    public int Height { get; private set; } = 375;
+    public int Width { get; private set; } = 1000;
+    public int Height { get; private set; } = 1000; // 375
     public int WorldWidth { get; private set; } = 0;
     public int WorldHeight { get; private set; } = 0;
 
@@ -108,6 +109,15 @@ public class Map {
 
         LightTexture.SetData(data);
     }
+    public void ModifyTex(Point p, Color color) {
+        if (drawedTexture == null)
+            return;
+        Texture2D tex = drawedTexture;
+        Color[] data = new Color[1];
+        tex.GetData(0, new Rectangle(p.X, p.Y, 1, 1), data, 0, 1);
+        data[0] = color;
+        tex.SetData(0, new Rectangle(p.X, p.Y, 1, 1), data, 0, 1);
+    }
 
     public void GenTex() {
         const int declatity = 1;
@@ -156,6 +166,18 @@ public class Map {
         return new(x, y);
     }
     public Point GetIndexAtPos(Vector2 worldPos) => GetIndexAtPos(worldPos, out var _);
+    public int GetTileAtIndex(Point p) {
+        var id = Tiles[p.X, p.Y];
+        return id;
+    }
+    public void SetTileAtIndex(Point p, int id) {
+        Tiles[p.X, p.Y] = id;
+        ModifyTex(p, GameScene.TileRegister.GetTileById(Tiles[p.X, p.Y]).GetMapColor());
+    }
+    public Tile GetTileObjectAtIndex(Point p) {
+        var id = GetTileAtIndex(p);
+        return GameScene.TileRegister.GetTileById(id);
+    }
 
     public int GetTileAtWorldPos(Vector2 worldPos) {
         var p = GetIndexAtPos(worldPos, out var exist);

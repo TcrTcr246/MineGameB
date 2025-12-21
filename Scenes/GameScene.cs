@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 using MineGameB.World;
 using MineGameB.World.Objects;
 using MineGameB.World.Tiles;
@@ -14,37 +15,14 @@ public class GameScene() : Scene("game") {
     static Effects.ShadowEffect shadowEffect;
 
     static ContentManager Content => Game1.Instance.Content;
-    static GraphicsDevice GraphicsDevice => Game1.Instance.GraphicsDevice;
     static Camera2D Camera => Game1.Instance.Camera;
     static Game1 Game1Inst => Game1.Instance;
 
+    MouseState ms, lms;
 
-    public override void Load() {
-        Texture2D tileset = Content.Load<Texture2D>("tiles2");
-        Texture2D objsImage = Content.Load<Texture2D>("objects");
-
-        int tilesize = 32;
-
-        TileRegister = new TileRegister();
-        var register = TileRegister.Register;
-        Tile newTile(string name, int px, int py) {
-            var t = tilesize;
-            return register(new Tile(tileset, new(px * t, py * t, t, t), name));
-        }
-
-        register(new(tileset, new(0, 64, 32, 32), "debug")).SetMapColor(Color.Magenta);
-        register(new(tileset, new(32, 64, 32, 32), "blank_white")).SetMapColor(Color.White).SetDrawColor(Color.White);
-        register(new(tileset, new(32, 64, 32, 32), "blank_blue")).SetMapColor(Color.AliceBlue).SetDrawColor(Color.AliceBlue);
-        newTile("floor1", 0, 0).SetMapColor(Color.DarkGray);
-        newTile("floor2", 1, 0).SetMapColor(Color.DarkGray);
-        newTile("coper", 2, 0).SetMapColor(Color.Orange);
-        newTile("wall", 3, 0).SetMapColor(Color.Gray).SetSolid().SetLightPassable(false);
-
-        LocalMap = new Map().Load()
-            .NewGenerate((x, y) => {
-                return TileRegister.GetIdByName((x + y) % 2 == 0 ? "blank_white" : "blank_blue");
-            });
-
+#pragma warning disable IDE0079
+#pragma warning disable CA1822
+    public void AddGears(Texture2D objsImage) {
         LocalMap.TranslateAddObject(new(0, -4));
         LocalMap.AddObjectRel(new(-4, 0), new Cog(objsImage));
         LocalMap.AddObjectRel(new(-4, 0), new Lever(objsImage));
@@ -102,7 +80,41 @@ public class GameScene() : Scene("game") {
         LocalMap.AddObjectRel(new(3, -1), new Cog(objsImage));
         LocalMap.AddObjectRel(new(4, -1), new Cog(objsImage));
         LocalMap.AddObjectRel(new(4, -1), new Lever(objsImage));
+    }
+#pragma warning restore CA1822
+#pragma warning restore IDE0079
 
+    public override void Load() {
+        Texture2D tileset = Content.Load<Texture2D>("tiles2");
+        Texture2D objsImage = Content.Load<Texture2D>("objects");
+        _ = objsImage;
+
+        ms = Mouse.GetState();
+        lms = ms;
+
+        int tilesize = 32;
+
+        TileRegister = new TileRegister();
+        var register = TileRegister.Register;
+        Tile newTile(string name, int px, int py) {
+            var t = tilesize;
+            return register(new Tile(tileset, new(px * t, py * t, t, t), name));
+        }
+
+        register(new(tileset, new(0, 64, 32, 32), "debug")).SetMapColor(Color.Magenta);
+        register(new(tileset, new(32, 64, 32, 32), "blank_white")).SetMapColor(Color.White).SetDrawColor(Color.White);
+        register(new(tileset, new(32, 64, 32, 32), "blank_blue")).SetMapColor(Color.AliceBlue).SetDrawColor(Color.AliceBlue);
+        newTile("floor1", 0, 0).SetMapColor(Color.DarkGray);
+        newTile("floor2", 1, 0).SetMapColor(Color.DarkGray);
+        newTile("wall", 3, 0).SetMapColor(Color.Gray).SetSolid().SetLightPassable(false).SetDurity(4f);
+
+        LocalMap = new Map().Load();
+        /* LocalMap.NewGenerate((x, y) => {
+            return TileRegister.GetIdByName((x + y) % 2 == 0 ? "blank_white" : "blank_blue");
+        }); */
+        LocalMap.Generate();
+
+        // AddGears(objsImage);
 
         var shadowTex = Content.Load<Texture2D>("shadow");
         shadowEffect = new(Content.Load<Effect>("RadialEffect"), LocalMap, shadowTex);
@@ -116,10 +128,18 @@ public class GameScene() : Scene("game") {
     public override void Update(GameTime gameTime) {
         LocalMap.Update(gameTime);
 
-        Camera.ScaleIndependent(gameTime);
-        Camera.MoveIndependent(gameTime, 500);
+        lms = ms;
+        ms = Mouse.GetState();
 
-        LocalMap.GetTileAtWorldPos(Camera.Position);
+        Camera.ScaleIndependent(gameTime);
+        Camera.MoveIndependent(gameTime, !Keyboard.GetState().IsKeyDown(Keys.LeftShift)?500:3000);
+
+        Point loc = LocalMap.GetIndexAtPos(Camera2D.MouseWorld);
+        Tile tile = LocalMap.GetTileObjectAtIndex(loc);
+        if (tile.IsBreakable && ms.LeftButton==ButtonState.Pressed)
+            LocalMap.SetTileAtIndex(loc, TileRegister.GetIdByName("floor1"));
+        if (ms.RightButton == ButtonState.Pressed)
+            LocalMap.SetTileAtIndex(loc, TileRegister.GetIdByName("wall"));
 
         base.Update(gameTime);
     }

@@ -49,7 +49,7 @@ public class Lock : WorldObject {
         lms = ms;
         ms = Mouse.GetState();
 
-        var mousePos = Game1.Instance.Camera.MouseWorld;
+        var mousePos = Camera2D.MouseWorld;
 
         bool click = ms.LeftButton == ButtonState.Pressed &&
                      lms.LeftButton == ButtonState.Released;
