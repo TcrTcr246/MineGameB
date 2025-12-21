@@ -1,5 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
+using MineGameB.Scenes;
 using System;
 
 namespace MineGameB.World {
@@ -25,14 +25,13 @@ namespace MineGameB.World {
         public int? _seed = int.MinValue;
 
         private static int GetMap(Random rng, Point _, float value, int bands, float bandWidth) {
-            var reg = Game1.Instance.tileRegister;
-            int id = reg.GetIdByName("wall");
+            int id = GameScene.TileRegister.GetIdByName("wall");
 
             for (int i = 0; i < bands; i++) {
                 float start = i / (float)bands;
                 float end = start + bandWidth;
                 if (value >= start && value < end) {
-                    id = reg.GetIdByName(rng.Next() % 2 == 0 ? "floor1" : "floor2");
+                    id = GameScene.TileRegister.GetIdByName(rng.Next() % 2 == 0 ? "floor1" : "floor2");
                     break;
                 }
             }

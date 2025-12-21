@@ -73,7 +73,7 @@ public class Game : Microsoft.Xna.Framework.Game {
         }
     }
 
-    protected void DrawBackground(Color color) {
+    public void DrawBackground(Color color) {
         DrawFillRect(GraphicsDevice, new(0, 0), Letterbox.ScreenWidth, Letterbox.ScreenHeight, color);
     }
 }

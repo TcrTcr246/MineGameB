@@ -1,8 +1,8 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using MineGameB.Scenes;
 using MineGameB.World.Objects;
-using MineGameB.World.Tiles;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -25,13 +25,20 @@ public class Map {
     protected int[,] Tiles;
     protected Dictionary<Point, List<WorldObject>> Objects;
     public WorldObject AddObject(Point pct, WorldObject obj) {
+        pct += AddObjectTranslation;
         if (!Objects.TryGetValue(pct, out var list)) {
             list = [];
             Objects[pct] = list;
         }
         list.Add(obj);
-        return obj.SetMap(this).SetMapPosition(pct).SetPosition(GetPosAtTile(pct)+new Vector2(TileSize / 2, TileSize / 2));
+        return obj.SetMap(this).SetMapPosition(pct).SetPosition(GetPosAtIndex(pct)+new Vector2(TileSize / 2, TileSize / 2));
     }
+
+    Point AddObjectTranslation = new(0, 0);
+    public void TranslateAddObject(Point point) =>
+        AddObjectTranslation += point;
+    public void ResetTranslationOfAddObject() =>
+        AddObjectTranslation = new Point(0, 0);
 
     public WorldObject AddObjectRel(Point pct, WorldObject obj) => AddObject(pct + new Point(Width/2, Height/2), obj);
 
@@ -44,7 +51,7 @@ public class Map {
     }
 
     public Map Load() {
-        generator.FlatGenerate(Game1.Instance.tileRegister.GetIdByName("floor1"));
+        generator.FlatGenerate(GameScene.TileRegister.GetIdByName("floor1"));
         Tiles = generator.Tiles;
 
         WorldWidth = Width * TileSize;
@@ -90,7 +97,7 @@ public class Map {
                         int nx = tx + _x;
                         int ny = ty + _y;
                         if (nx < 0 || nx >= Width || ny < 0 || ny >= Height) continue;
-                        if (Game1.Instance.tileRegister.GetTileById(Tiles[nx, ny]).IsLightPassable) {
+                        if (GameScene.TileRegister.GetTileById(Tiles[nx, ny]).IsLightPassable) {
                             isLight = true;
                             break;
                         }
@@ -111,7 +118,7 @@ public class Map {
 
         for (int y = 0; y < h; y++)
             for (int x = 0; x < w; x++)
-                flat[y * w + x] = Game1.Instance.tileRegister.GetTileById(Tiles[x * declatity, y * declatity]).MapColor;
+                flat[y * w + x] = GameScene.TileRegister.GetTileById(Tiles[x * declatity, y * declatity]).MapColor;
 
         drawedTexture ??= new Texture2D(Game1.Instance.GraphicsDevice, Width/declatity, Height/declatity);
         drawedTexture.SetData(flat);
@@ -130,16 +137,31 @@ public class Map {
             endY - startY + 1
         );
     }
-    public Vector2 GetPosAtTile(Point p) {
+    public Vector2 GetPosAtIndex(Point p, out bool exist) {
+        int x = p.X, y = p.Y;
+        exist = true;
+        if (x < 0 || x >= Width || y < 0 || y >= Height)
+            exist = false;
         return new Vector2(p.X * TileSize, p.Y * TileSize);
     }
-    public int GetTileAtWorldPos(Vector2 worldPos) {
+    public Vector2 GetPosAtIndex(Point p) => GetPosAtIndex(p, out var _);
+
+
+    public Point GetIndexAtPos(Vector2 worldPos, out bool exist) {
         int x = (int)(worldPos.X / TileSize);
+        exist = true;
         int y = (int)(worldPos.Y / TileSize);
-        if (x < 0 || x >= Width || y < 0 || y >= Height) {
-            return Game1.Instance.tileRegister.GetIdByName("debug");
-        }
-        return Tiles[x, y];
+        if (x < 0 || x >= Width || y < 0 || y >= Height)
+            exist = false;
+        return new(x, y);
+    }
+    public Point GetIndexAtPos(Vector2 worldPos) => GetIndexAtPos(worldPos, out var _);
+
+    public int GetTileAtWorldPos(Vector2 worldPos) {
+        var p = GetIndexAtPos(worldPos, out var exist);
+        if (!exist)
+            return GameScene.TileRegister.GetIdByName("debug");
+        return Tiles[p.X, p.Y];
     }
 
     public List<WorldObject> GetObjectListAtPos(Point loc) => Objects.GetValueOrDefault(loc);
@@ -181,7 +203,7 @@ public class Map {
 
             for (int x = r.X; x < r.X + r.Width; x++) {
                 for (int y = r.Y; y < r.Y + r.Height; y++) {
-                    Tile tile = Game1.Instance.tileRegister.GetTileById(Tiles[x, y]);
+                    Tile tile = GameScene.TileRegister.GetTileById(Tiles[x, y]);
                     tile.Draw(spriteBatch, new Rectangle(x*TileSize, y*TileSize, TileSize, TileSize));
                 }
             }

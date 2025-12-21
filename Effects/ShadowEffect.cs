@@ -21,7 +21,7 @@ public class ShadowEffect : Effect {
         int border = 1;
         r = new Rectangle(r.X - border, r.Y - border, r.Width + border * 2, r.Height + border * 2);
 
-        var mapLightningOffset = map.GetPosAtTile(new Point(r.X, r.Y));
+        var mapLightningOffset = map.GetPosAtIndex(new Point(r.X, r.Y));
         mapLightningRect = new Rectangle(
             (int)mapLightningOffset.X,
             (int)mapLightningOffset.Y,
