@@ -4,32 +4,31 @@ using Microsoft.Xna.Framework.Graphics;
 namespace MineGameB.World.Tiles;
 
 public class Tile(Texture2D texture, Rectangle sourceRectangle, string name) {
-    public Texture2D Texture { get; set; } = texture;
-    public Rectangle SourceRectangle { get; set; } = sourceRectangle;
+    public Texture2D Texture { get; protected set; } = texture;
+    public Rectangle SourceRectangle { get; protected set; } = sourceRectangle;
     public int MapLayer = 0;
     public Tile SetMapLayer(int layer) {
         MapLayer = layer;
         return this;
     }
 
-    public string Name { get; set; } = name;
+    public string Name { get; protected set; } = name;
     public Tile SetName(string name) {
         Name = name;
         return this;
     }
 
-    public bool IsSolid { get; set; } = false;
+    public bool IsSolid { get; protected set; } = false;
     public Tile SetSolid (bool v = false) {
         IsSolid = v;
         return this;
     }
 
-    public Color MapColor { get; set; } = Color.White;
+    public Color MapColor { get; protected set; } = Color.White;
     public Tile SetMapColor(Color color) {
         MapColor = color;
         return this;
     }
-    public Color GetMapColor() => MapColor;
 
     public Color DrawColor { get; protected set; } = Color.White;
     public Tile SetDrawColor(Color? color=null) {

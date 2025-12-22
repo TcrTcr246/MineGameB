@@ -105,7 +105,7 @@ public class GameScene() : Scene("game") {
         register(new(tileset, new(32, 64, 32, 32), "blank_white")).SetMapColor(Color.White).SetDrawColor(Color.White);
         register(new(tileset, new(32, 64, 32, 32), "blank_blue")).SetMapColor(Color.AliceBlue).SetDrawColor(Color.AliceBlue);
         newTile("floor1", 0, 0).SetMapColor(Color.DarkGray);
-        newTile("floor2", 1, 0).SetMapColor(Color.DarkGray).SetMapLayer(1);
+        newTile("floor2", 1, 0).SetMapColor(Color.DarkGray);
         newTile("wall", 3, 0).SetMapColor(Color.Gray).SetSolid().SetLightPassable(false).SetDurity(4f);
 
         LocalMap = new Map().Load();
@@ -146,11 +146,12 @@ public class GameScene() : Scene("game") {
             }
 
             if (ms.RightButton == ButtonState.Pressed) {
-                var n = LocalMap.GetTileObjectAtIndex(loc);
-                if (!n.IsSolid)
+                if (!LocalMap.GetTileObjectAtIndex(loc).IsSolid)
                     LocalMap.SetTileAtIndex(loc, TileRegister.GetIdByName("wall"));
             }
         }
+
+        shadowEffect.Update(gameTime);
 
         base.Update(gameTime);
     }

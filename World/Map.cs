@@ -13,7 +13,7 @@ public class Map {
     public int TileSize { get; private set; } = 32;
     public int Width { get; private set; } = 1000;
     public int Height { get; private set; } = 1000;
-    public int Depth { get; private set; } = 10; // Number of layers
+    public int Depth { get; private set; } = 4;
     public int WorldWidth { get; private set; } = 0;
     public int WorldHeight { get; private set; } = 0;
 
@@ -25,7 +25,7 @@ public class Map {
 #pragma warning restore IDE0079
     public Rectangle Rect => new(0, 0, WorldWidth, WorldHeight);
 
-    protected int[,,] Tiles; // Now 3D: [x, y, layer]
+    protected int[,,] Tiles;
     protected Dictionary<Point, List<WorldObject>> Objects;
 
     public WorldObject AddObject(Point pct, WorldObject obj) {
@@ -47,6 +47,7 @@ public class Map {
     public WorldObject AddObjectRel(Point pct, WorldObject obj) => AddObject(pct + new Point(Width / 2, Height / 2), obj);
 
     protected Generator generator;
+    public int GetSeed() => (int)generator._seed;
 
     public Map() {
         Tiles = new int[Width, Height, Depth];
@@ -81,6 +82,9 @@ public class Map {
     public void BuildVisibleLightTexture(Rectangle r) {
         int w = r.Width;
         int h = r.Height;
+
+        if (!(w > 0 && h > 0))
+            return;
 
         if (LightTexture == null ||
             LightTexture.Width != w ||
@@ -151,7 +155,6 @@ public class Map {
 
         for (int y = 0; y < h; y++)
             for (int x = 0; x < w; x++) {
-                // Get the top tile at this position
                 int topTile = GetTileAtIndex(new Point(x * declatity, y * declatity));
                 flat[y * w + x] = GameScene.TileRegister.GetTileById(topTile).MapColor;
             }
@@ -166,11 +169,12 @@ public class Map {
         int endX = Math.Min(Width - 1, cameraRect.Right / TileSize);
         int endY = Math.Min(Height - 1, cameraRect.Bottom / TileSize);
 
+        int b = 1;
         return new Rectangle(
-            startX - 1,
-            startY - 1,
-            endX - startX + 3,
-            endY - startY + 3
+            startX - b,
+            startY - b,
+            endX - startX + 1 + b * 2,
+            endY - startY + 1 + b * 2
         );
     }
 
@@ -193,29 +197,24 @@ public class Map {
 
     public bool IsValidIndex(Point p, int layer) =>
         p.X >= 0 && p.X < Width && p.Y >= 0 && p.Y < Height && layer >= 0 && layer < Depth;
-
-    // Get tile at specific layer, or top tile if layer is null
     public int GetTileAtIndex(Point p, int? layer = null) {
         if (!IsValidIndex(p))
             return GameScene.TileRegister.GetIdByName("debug");
 
         if (layer.HasValue) {
-            // Get specific layer
             if (layer.Value < 0 || layer.Value >= Depth)
                 return GameScene.TileRegister.GetIdByName("debug");
             return Tiles[p.X, p.Y, layer.Value];
         } else {
-            // Get top non-empty tile
             for (int z = Depth - 1; z >= 0; z--) {
                 int tileId = Tiles[p.X, p.Y, z];
-                if (tileId != 0) // Assuming 0 is empty/air
+                if (tileId != 0)
                     return tileId;
             }
-            return Tiles[p.X, p.Y, 0]; // Return bottom layer if all empty
+            return Tiles[p.X, p.Y, 0];
         }
     }
 
-    // Set tile at specific layer, or add on top if layer is null
     public void SetTileAtIndex(Point p, int id, int? layer = null) {
         if (!IsValidIndex(p))
             return;
@@ -223,12 +222,10 @@ public class Map {
         int targetLayer;
 
         if (layer.HasValue) {
-            // Set at specific layer
             if (layer.Value < 0 || layer.Value >= Depth)
                 return;
             targetLayer = layer.Value;
         } else {
-            // Find first empty layer from top
             targetLayer = -1;
             for (int z = 0; z < Depth; z++) {
                 if (Tiles[p.X, p.Y, z] == 0) {
@@ -237,31 +234,26 @@ public class Map {
                 }
             }
 
-            // If no empty layer found, use top layer
             if (targetLayer == -1)
                 targetLayer = Depth - 1;
         }
 
         Tiles[p.X, p.Y, targetLayer] = id;
 
-        // Update minimap texture to show top tile
         int topTile = GetTileAtIndex(p);
-        ModifyTex(p, GameScene.TileRegister.GetTileById(topTile).GetMapColor());
+        ModifyTex(p, GameScene.TileRegister.GetTileById(topTile).MapColor);
     }
 
-    // Remove the top tile at position
     public void RemoveTileAtIndex(Point p) {
         if (!IsValidIndex(p))
             return;
 
-        // Find and remove the topmost non-empty tile
         for (int z = Depth - 1; z >= 0; z--) {
             if (Tiles[p.X, p.Y, z] != 0) {
                 Tiles[p.X, p.Y, z] = 0;
 
-                // Update minimap texture to show new top tile
                 int topTile = GetTileAtIndex(p);
-                ModifyTex(p, GameScene.TileRegister.GetTileById(topTile).GetMapColor());
+                ModifyTex(p, GameScene.TileRegister.GetTileById(topTile).MapColor);
                 return;
             }
         }
@@ -317,7 +309,6 @@ public class Map {
         } else {
             Rectangle r = GetVisibleTileRect(Game1.Instance.Camera.GetViewBounds(Game1.Instance.GraphicsDevice));
 
-            // Draw only the top tile at each position
             for (int x = r.X; x < r.X + r.Width; x++) {
                 for (int y = r.Y; y < r.Y + r.Height; y++) {
                     if (!IsValidIndex(new Point(x, y)))
@@ -331,7 +322,6 @@ public class Map {
 
             int layerRange = 10;
 
-            // Draw objects with their layer system
             foreach (var list in Objects.Values)
                 for (int n = -layerRange; n < 0; n++)
                     foreach (var o in list)

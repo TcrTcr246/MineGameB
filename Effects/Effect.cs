@@ -10,5 +10,6 @@ public class Effect {
         this.effect = effect;
     }
 
+    public virtual void Update(GameTime gameTime) { }
     public virtual void Draw(SpriteBatch spriteBatch) { }
 }

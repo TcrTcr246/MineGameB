@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using MineGameB.Scenes;
+using MineGameB.World;
 
 namespace MineGameB;
 public class Game1 : GameTemplate.Game {
@@ -10,6 +11,12 @@ public class Game1 : GameTemplate.Game {
 
     protected override void Initialize() {
         Camera.TranslateBackToWorldPos = false;
+
+        // vsinc off
+        IsFixedTimeStep = false;
+        _graphics.SynchronizeWithVerticalRetrace = false;
+        _graphics.ApplyChanges();
+
         base.Initialize();
     }
 
@@ -31,6 +38,9 @@ public class Game1 : GameTemplate.Game {
             Exit();
 
         Scene.GetCurentScene().Update(gameTime);
+
+        float fps = 1 / (float)gameTime.ElapsedGameTime.TotalSeconds;
+        Window.Title = $"MineGame - FPS: {fps:0.0} - seed: {GameScene.LocalMap.GetSeed()}";
 
         base.Update(gameTime);
     }

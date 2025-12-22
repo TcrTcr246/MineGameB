@@ -1,28 +1,22 @@
-﻿sampler2D TileMask : register(s0);
-
-float TileSize; // 1 / textureWidth
-float Softness; // intensity
+﻿sampler2D TileMask;
+float TileSize;
+float Softness;
 
 float4 MainPS(float2 uv : TEXCOORD0) : COLOR0
 {
-    // fixed 3x3 blur (1 tile radius)
-    float light = 0.0;
+    // horizontal pass
+    float h = tex2D(TileMask, uv + float2(-TileSize, 0)).r
+            + tex2D(TileMask, uv).r
+            + tex2D(TileMask, uv + float2(TileSize, 0)).r;
+    h /= 3.0;
 
-    light += tex2D(TileMask, uv + float2(-TileSize, -TileSize)).r;
-    light += tex2D(TileMask, uv + float2(0, -TileSize)).r;
-    light += tex2D(TileMask, uv + float2(TileSize, -TileSize)).r;
+    // vertical pass
+    float v = tex2D(TileMask, uv + float2(0, -TileSize)).r
+            + h
+            + tex2D(TileMask, uv + float2(0, TileSize)).r;
+    v /= 3.0;
 
-    light += tex2D(TileMask, uv + float2(-TileSize, 0)).r;
-    light += tex2D(TileMask, uv).r;
-    light += tex2D(TileMask, uv + float2(TileSize, 0)).r;
-
-    light += tex2D(TileMask, uv + float2(-TileSize, TileSize)).r;
-    light += tex2D(TileMask, uv + float2(0, TileSize)).r;
-    light += tex2D(TileMask, uv + float2(TileSize, TileSize)).r;
-
-    light /= 9.0;
-    light = saturate(light * Softness);
-
+    float light = saturate(v * Softness);
     return float4(0, 0, 0, 1 - light);
 }
 

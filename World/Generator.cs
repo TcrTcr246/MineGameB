@@ -27,6 +27,7 @@ public class Generator {
     public int _bands = 2;
     public float _bandWidth = .15f;
     public int? _seed = int.MinValue;
+    static Random seedRng = new();
 
     private static int GetFloorTile(Random rng) {
         return GameScene.TileRegister.GetIdByName(rng.Next() % 2 == 0 ? "floor1" : "floor2");
@@ -37,10 +38,10 @@ public class Generator {
             float start = i / (float)bands;
             float end = start + bandWidth;
             if (value >= start && value < end) {
-                return false; // This is a floor area
+                return false;
             }
         }
-        return true; // This is a wall area
+        return true;
     }
 
     static float Smoothstep(float edge0, float edge1, float x) {
@@ -60,9 +61,9 @@ public class Generator {
         bands = bands == int.MinValue ? _bands : bands;
         bandWidth = float.IsNaN(bandWidth) ? _bandWidth : bandWidth;
 
-        var rng = new Random(_seed == int.MinValue ? new Random().Next() : (int)_seed);
+        _seed = _seed == int.MinValue ? seedRng.Next() : (int)_seed;
+        var rng = new Random((int)_seed);
 
-        // Initialize permutation table with seed
         InitializePermutation(rng);
 
         float[,] noise = GenerateNoiseMap(Width, Height, rng, scale, octaves, persistence, lacunarity);
@@ -75,18 +76,15 @@ public class Generator {
                 float edgeDistY = Math.Min(y, Height - 1 - y) / (Height * 0.5f);
                 float edgeDist = Math.Min(edgeDistX, edgeDistY);
 
-                // Apply smooth falloff
                 float falloff = Smoothstep(0f, 0.2f, edgeDist);
                 value /= falloff;
 
-                // Layer 0: Always place floor
                 Tiles[x, y, 0] = GetFloorTile(rng);
 
-                // Layer 1: Place wall if needed
                 if (ShouldPlaceWall(value, bands, bandWidth)) {
                     Tiles[x, y, 1] = GameScene.TileRegister.GetIdByName("wall");
                 } else {
-                    Tiles[x, y, 1] = 0; // Empty/air
+                    Tiles[x, y, 1] = 0;
                 }
             }
         }
@@ -100,7 +98,6 @@ public class Generator {
             p[i] = i;
         }
 
-        // Shuffle using Fisher-Yates
         for (int i = 255; i > 0; i--) {
             int j = rng.Next(i + 1);
             int temp = p[i];
@@ -108,7 +105,6 @@ public class Generator {
             p[j] = temp;
         }
 
-        // Duplicate for easier indexing
         for (int i = 0; i < 512; i++) {
             permutation[i] = p[i % 256];
         }
@@ -151,41 +147,31 @@ public class Generator {
     }
 
     private static float PerlinNoise(float x, float y) {
-        // Find unit square that contains point
         int xi = (int)Math.Floor(x) & 255;
         int yi = (int)Math.Floor(y) & 255;
 
-        // Find relative x,y in square
         float xf = x - (float)Math.Floor(x);
         float yf = y - (float)Math.Floor(y);
 
-        // Fade curves for x and y
         float u = Fade(xf);
         float v = Fade(yf);
 
-        // Hash coordinates of 4 square corners
         int aa = permutation[permutation[xi] + yi];
         int ab = permutation[permutation[xi] + yi + 1];
         int ba = permutation[permutation[xi + 1] + yi];
         int bb = permutation[permutation[xi + 1] + yi + 1];
 
-        // Blend results from 4 corners
         float x1 = Lerp(Grad(aa, xf, yf), Grad(ba, xf - 1, yf), u);
         float x2 = Lerp(Grad(ab, xf, yf - 1), Grad(bb, xf - 1, yf - 1), u);
 
         return Lerp(x1, x2, v);
     }
 
-    private static float Fade(float t) {
-        return t * t * t * (t * (t * 6 - 15) + 10);
-    }
+    private static float Fade(float t) => t * t * t * (t * (t * 6 - 15) + 10);
 
-    private static float Lerp(float a, float b, float t) {
-        return a + t * (b - a);
-    }
+    private static float Lerp(float a, float b, float t) => MathHelper.Lerp(a, b, t);
 
     private static float Grad(int hash, float x, float y) {
-        // Convert low 4 bits of hash into 8 gradient directions
         int h = hash & 7;
         float u = h < 4 ? x : y;
         float v = h < 4 ? y : x;
@@ -195,7 +181,6 @@ public class Generator {
     public static float[,] FillSmallGaps(float[,] noise, int width, int height, float threshold = 0.5f, int maxGap = 2) {
         float[,] result = (float[,])noise.Clone();
 
-        // Horizontal pass
         for (int y = 0; y < height; y++) {
             int gapStart = -1;
             for (int x = 0; x < width; x++) {
@@ -216,7 +201,6 @@ public class Generator {
             }
         }
 
-        // Vertical pass
         for (int x = 0; x < width; x++) {
             int gapStart = -1;
             for (int y = 0; y < height; y++) {
