@@ -119,12 +119,15 @@ public class Camera2D {
     float TargetZoom = uniqueFloatCode;
     float scrollLerpSpeed = 3f;
 
-    public void ScaleIndependent(GameTime gameTime, float scrollSpeed=100f, float lerpSpeed=7f, float minimum=0.01f, float maximum=2.5f) {
-        int sc = ms.ScrollWheelValue - lastMs.ScrollWheelValue;
-        _ = gameTime;
+    public void ScaleIndependent(GameTime gameTime, float scrollSpeed=100f, float lerpSpeed=7f, float minimum=0.005f, float maximum=2.5f) {
+        if (TargetZoom == uniqueFloatCode)
+            TargetZoom = Zoom;
 
+        int sc = ms.ScrollWheelValue - lastMs.ScrollWheelValue;
         if (sc != 0) {
-            TargetZoom += sc * (scrollSpeed/100000f);
+            float distanceFactor = TargetZoom;
+
+            TargetZoom += sc * (scrollSpeed / 100000f) * distanceFactor;
             TargetZoom = MathHelper.Clamp(TargetZoom, minimum, maximum);
             scrollLerpSpeed = lerpSpeed;
         }

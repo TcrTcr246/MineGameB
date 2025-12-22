@@ -12,19 +12,22 @@ namespace MineGameB.World;
 public class Map {
     public int TileSize { get; private set; } = 32;
     public int Width { get; private set; } = 1000;
-    public int Height { get; private set; } = 1000; // 375
+    public int Height { get; private set; } = 1000;
+    public int Depth { get; private set; } = 10; // Number of layers
     public int WorldWidth { get; private set; } = 0;
     public int WorldHeight { get; private set; } = 0;
 
 #pragma warning disable IDE0079
 #pragma warning disable CA1822
-    public bool InWorldZoom => Game1.Instance.Camera.Zoom >= 0.2f; // 0.35f
+    public bool InWorldZoom => Game1.Instance.Camera.Zoom >= 0.25f;
+    bool wasInWorldZoom = false;
 #pragma warning restore CA1822
 #pragma warning restore IDE0079
     public Rectangle Rect => new(0, 0, WorldWidth, WorldHeight);
 
-    protected int[,] Tiles;
+    protected int[,,] Tiles; // Now 3D: [x, y, layer]
     protected Dictionary<Point, List<WorldObject>> Objects;
+
     public WorldObject AddObject(Point pct, WorldObject obj) {
         pct += AddObjectTranslation;
         if (!Objects.TryGetValue(pct, out var list)) {
@@ -32,7 +35,7 @@ public class Map {
             Objects[pct] = list;
         }
         list.Add(obj);
-        return obj.SetMap(this).SetMapPosition(pct).SetPosition(GetPosAtIndex(pct)+new Vector2(TileSize / 2, TileSize / 2));
+        return obj.SetMap(this).SetMapPosition(pct).SetPosition(GetPosAtIndex(pct) + new Vector2(TileSize / 2, TileSize / 2));
     }
 
     Point AddObjectTranslation = new(0, 0);
@@ -41,26 +44,27 @@ public class Map {
     public void ResetTranslationOfAddObject() =>
         AddObjectTranslation = new Point(0, 0);
 
-    public WorldObject AddObjectRel(Point pct, WorldObject obj) => AddObject(pct + new Point(Width/2, Height/2), obj);
+    public WorldObject AddObjectRel(Point pct, WorldObject obj) => AddObject(pct + new Point(Width / 2, Height / 2), obj);
 
     protected Generator generator;
 
     public Map() {
-        Tiles = new int[Width, Height];
+        Tiles = new int[Width, Height, Depth];
         Objects = [];
-        generator = new Generator(Width, Height, TileSize);
+        generator = new Generator(Width, Height, TileSize, Depth);
     }
 
     public Map Load() {
-        generator.FlatGenerate(GameScene.TileRegister.GetIdByName("floor1"));
+        generator.FlatGenerate(GameScene.TileRegister.GetIdByName("floor1"), 0);
         Tiles = generator.Tiles;
 
         WorldWidth = Width * TileSize;
         WorldHeight = Height * TileSize;
         return this;
     }
-    public Map NewGenerate(Func<int, int, int> f) {
-        generator.FuncGenerate(f);
+
+    public Map NewGenerate(Func<int, int, int> f, int layer = 0) {
+        generator.FuncGenerate(f, layer);
         Tiles = generator.Tiles;
         return this;
     }
@@ -93,12 +97,14 @@ public class Map {
                 int ty = r.Y + y;
 
                 bool isLight = false;
-                for (int _y=-darkSeeRange; _y<= darkSeeRange; _y++)
-                    for (int _x=-darkSeeRange; _x<= darkSeeRange; _x++) {
+                for (int _y = -darkSeeRange; _y <= darkSeeRange; _y++)
+                    for (int _x = -darkSeeRange; _x <= darkSeeRange; _x++) {
                         int nx = tx + _x;
                         int ny = ty + _y;
-                        if (nx < 0 || nx >= Width || ny < 0 || ny >= Height) continue;
-                        if (GameScene.TileRegister.GetTileById(Tiles[nx, ny]).IsLightPassable) {
+                        if (nx < 0 || nx >= Width || ny < 0 || ny >= Height)
+                            continue;
+                        int topTile = GetTileAtIndex(new Point(nx, ny));
+                        if (GameScene.TileRegister.GetTileById(topTile).IsLightPassable) {
                             isLight = true;
                             break;
                         }
@@ -109,14 +115,31 @@ public class Map {
 
         LightTexture.SetData(data);
     }
+
+    List<Point> modifiedTexPoints = [];
+    List<Color> modifiedTexColors = [];
+
     public void ModifyTex(Point p, Color color) {
+        modifiedTexPoints.Add(p);
+        modifiedTexColors.Add(color);
+    }
+
+    public void ApplyModifTex(Point p, Color color) {
         if (drawedTexture == null)
             return;
-        Texture2D tex = drawedTexture;
+        int w = drawedTexture.Width;
+        int h = drawedTexture.Height;
+        int declatity = Width / w;
+        int tx = p.X / declatity;
+        int ty = p.Y / declatity;
+        if (tx < 0 || tx >= w || ty < 0 || ty >= h)
+            return;
         Color[] data = new Color[1];
-        tex.GetData(0, new Rectangle(p.X, p.Y, 1, 1), data, 0, 1);
+        drawedTexture.GetData(0, new Rectangle(tx, ty, 1, 1), data, 0, 1);
         data[0] = color;
-        tex.SetData(0, new Rectangle(p.X, p.Y, 1, 1), data, 0, 1);
+        drawedTexture.SetData(0, new Rectangle(tx, ty, 1, 1), data, 0, 1);
+        modifiedTexPoints.Clear();
+        modifiedTexColors.Clear();
     }
 
     public void GenTex() {
@@ -127,78 +150,145 @@ public class Map {
         var flat = new Color[w * h];
 
         for (int y = 0; y < h; y++)
-            for (int x = 0; x < w; x++)
-                flat[y * w + x] = GameScene.TileRegister.GetTileById(Tiles[x * declatity, y * declatity]).MapColor;
+            for (int x = 0; x < w; x++) {
+                // Get the top tile at this position
+                int topTile = GetTileAtIndex(new Point(x * declatity, y * declatity));
+                flat[y * w + x] = GameScene.TileRegister.GetTileById(topTile).MapColor;
+            }
 
-        drawedTexture ??= new Texture2D(Game1.Instance.GraphicsDevice, Width/declatity, Height/declatity);
+        drawedTexture ??= new Texture2D(Game1.Instance.GraphicsDevice, Width / declatity, Height / declatity);
         drawedTexture.SetData(flat);
     }
 
     public Rectangle GetVisibleTileRect(Rectangle cameraRect) {
         int startX = Math.Max(0, cameraRect.Left / TileSize);
-        int endX = Math.Min(Width - 1, cameraRect.Right / TileSize);
         int startY = Math.Max(0, cameraRect.Top / TileSize);
+        int endX = Math.Min(Width - 1, cameraRect.Right / TileSize);
         int endY = Math.Min(Height - 1, cameraRect.Bottom / TileSize);
 
         return new Rectangle(
-            startX,
-            startY,
-            endX - startX + 1,
-            endY - startY + 1
+            startX - 1,
+            startY - 1,
+            endX - startX + 3,
+            endY - startY + 3
         );
     }
+
     public Vector2 GetPosAtIndex(Point p, out bool exist) {
-        int x = p.X, y = p.Y;
-        exist = true;
-        if (x < 0 || x >= Width || y < 0 || y >= Height)
-            exist = false;
+        exist = p.X >= 0 && p.X < Width && p.Y >= 0 && p.Y < Height;
         return new Vector2(p.X * TileSize, p.Y * TileSize);
     }
-    public Vector2 GetPosAtIndex(Point p) => GetPosAtIndex(p, out var _);
-
+    public Vector2 GetPosAtIndex(Point p) => GetPosAtIndex(p, out _);
 
     public Point GetIndexAtPos(Vector2 worldPos, out bool exist) {
         int x = (int)(worldPos.X / TileSize);
-        exist = true;
         int y = (int)(worldPos.Y / TileSize);
-        if (x < 0 || x >= Width || y < 0 || y >= Height)
-            exist = false;
-        return new(x, y);
+        exist = x >= 0 && x < Width && y >= 0 && y < Height;
+        return new Point(x, y);
     }
-    public Point GetIndexAtPos(Vector2 worldPos) => GetIndexAtPos(worldPos, out var _);
-    public int GetTileAtIndex(Point p) {
-        var id = Tiles[p.X, p.Y];
-        return id;
-    }
-    public void SetTileAtIndex(Point p, int id) {
-        Tiles[p.X, p.Y] = id;
-        ModifyTex(p, GameScene.TileRegister.GetTileById(Tiles[p.X, p.Y]).GetMapColor());
-    }
-    public Tile GetTileObjectAtIndex(Point p) {
-        var id = GetTileAtIndex(p);
-        return GameScene.TileRegister.GetTileById(id);
-    }
+    public Point GetIndexAtPos(Vector2 worldPos) => GetIndexAtPos(worldPos, out _);
 
-    public int GetTileAtWorldPos(Vector2 worldPos) {
-        var p = GetIndexAtPos(worldPos, out var exist);
-        if (!exist)
+    public bool IsValidIndex(Point p) =>
+        p.X >= 0 && p.X < Width && p.Y >= 0 && p.Y < Height;
+
+    public bool IsValidIndex(Point p, int layer) =>
+        p.X >= 0 && p.X < Width && p.Y >= 0 && p.Y < Height && layer >= 0 && layer < Depth;
+
+    // Get tile at specific layer, or top tile if layer is null
+    public int GetTileAtIndex(Point p, int? layer = null) {
+        if (!IsValidIndex(p))
             return GameScene.TileRegister.GetIdByName("debug");
-        return Tiles[p.X, p.Y];
+
+        if (layer.HasValue) {
+            // Get specific layer
+            if (layer.Value < 0 || layer.Value >= Depth)
+                return GameScene.TileRegister.GetIdByName("debug");
+            return Tiles[p.X, p.Y, layer.Value];
+        } else {
+            // Get top non-empty tile
+            for (int z = Depth - 1; z >= 0; z--) {
+                int tileId = Tiles[p.X, p.Y, z];
+                if (tileId != 0) // Assuming 0 is empty/air
+                    return tileId;
+            }
+            return Tiles[p.X, p.Y, 0]; // Return bottom layer if all empty
+        }
     }
 
-    public List<WorldObject> GetObjectListAtPos(Point loc) => Objects.GetValueOrDefault(loc);
+    // Set tile at specific layer, or add on top if layer is null
+    public void SetTileAtIndex(Point p, int id, int? layer = null) {
+        if (!IsValidIndex(p))
+            return;
 
-    public static WorldObject FindObject(List<WorldObject> items, Func<WorldObject, bool> f) {
-        foreach (WorldObject obj in items)
-            if (f(obj))
-                return obj;
-        return null;
+        int targetLayer;
+
+        if (layer.HasValue) {
+            // Set at specific layer
+            if (layer.Value < 0 || layer.Value >= Depth)
+                return;
+            targetLayer = layer.Value;
+        } else {
+            // Find first empty layer from top
+            targetLayer = -1;
+            for (int z = 0; z < Depth; z++) {
+                if (Tiles[p.X, p.Y, z] == 0) {
+                    targetLayer = z;
+                    break;
+                }
+            }
+
+            // If no empty layer found, use top layer
+            if (targetLayer == -1)
+                targetLayer = Depth - 1;
+        }
+
+        Tiles[p.X, p.Y, targetLayer] = id;
+
+        // Update minimap texture to show top tile
+        int topTile = GetTileAtIndex(p);
+        ModifyTex(p, GameScene.TileRegister.GetTileById(topTile).GetMapColor());
     }
+
+    // Remove the top tile at position
+    public void RemoveTileAtIndex(Point p) {
+        if (!IsValidIndex(p))
+            return;
+
+        // Find and remove the topmost non-empty tile
+        for (int z = Depth - 1; z >= 0; z--) {
+            if (Tiles[p.X, p.Y, z] != 0) {
+                Tiles[p.X, p.Y, z] = 0;
+
+                // Update minimap texture to show new top tile
+                int topTile = GetTileAtIndex(p);
+                ModifyTex(p, GameScene.TileRegister.GetTileById(topTile).GetMapColor());
+                return;
+            }
+        }
+    }
+
+    public Tile GetTileObjectAtIndex(Point p, int? layer = null) =>
+        GameScene.TileRegister.GetTileById(GetTileAtIndex(p, layer));
+
+    public string GetTileNameAtIndex(Point p, int? layer = null) =>
+        GameScene.TileRegister.GetTileById(GetTileAtIndex(p, layer)).Name;
+
+    public int GetTileAtWorldPos(Vector2 worldPos, int? layer = null) {
+        var p = GetIndexAtPos(worldPos, out var exist);
+        return exist ? GetTileAtIndex(p, layer) : GameScene.TileRegister.GetIdByName("debug");
+    }
+
+    public List<WorldObject> GetObjectListAtPos(Point loc) =>
+        Objects.GetValueOrDefault(loc);
+
+    public static WorldObject FindObject(List<WorldObject> items, Func<WorldObject, bool> predicate) =>
+        items?.FirstOrDefault(predicate);
 
 
     Texture2D drawedTexture;
     KeyboardState ks, lks;
     bool firstFrame = true;
+    bool JustOutsideWorldZoom = false;
 
     public void Update(GameTime gameTime) {
         lks = ks;
@@ -206,10 +296,14 @@ public class Map {
 
         if (ks.IsKeyDown(Keys.R) && !lks.IsKeyDown(Keys.R)) {
             Generate();
+            firstFrame = true;
+        }
+
+        JustOutsideWorldZoom = !InWorldZoom && !wasInWorldZoom;
+        wasInWorldZoom = !InWorldZoom;
+        if (firstFrame || JustOutsideWorldZoom) {
             GenTex();
         }
-        if (firstFrame)
-            GenTex();
         firstFrame = false;
 
         foreach (var o in Objects.Values.Reverse())
@@ -223,15 +317,21 @@ public class Map {
         } else {
             Rectangle r = GetVisibleTileRect(Game1.Instance.Camera.GetViewBounds(Game1.Instance.GraphicsDevice));
 
+            // Draw only the top tile at each position
             for (int x = r.X; x < r.X + r.Width; x++) {
                 for (int y = r.Y; y < r.Y + r.Height; y++) {
-                    Tile tile = GameScene.TileRegister.GetTileById(Tiles[x, y]);
-                    tile.Draw(spriteBatch, new Rectangle(x*TileSize, y*TileSize, TileSize, TileSize));
+                    if (!IsValidIndex(new Point(x, y)))
+                        continue;
+
+                    int topTileId = GetTileAtIndex(new Point(x, y));
+                    Tile tile = GameScene.TileRegister.GetTileById(topTileId);
+                    tile.Draw(spriteBatch, new Rectangle(x * TileSize, y * TileSize, TileSize, TileSize));
                 }
             }
 
             int layerRange = 10;
 
+            // Draw objects with their layer system
             foreach (var list in Objects.Values)
                 for (int n = -layerRange; n < 0; n++)
                     foreach (var o in list)
@@ -247,6 +347,7 @@ public class Map {
                         DrawIfVisible(o, () => o.DrawLayer(spriteBatch, n));
         }
     }
+
     static void DrawIfVisible(WorldObject o, Action draw) {
         if (Game1.Instance.Camera.GetViewBounds(Game1.Instance.GraphicsDevice).Intersects(o.GetBounds()))
             draw();

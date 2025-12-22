@@ -1,11 +1,16 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace MineGameB.World;
+namespace MineGameB.World.Tiles;
 
 public class Tile(Texture2D texture, Rectangle sourceRectangle, string name) {
     public Texture2D Texture { get; set; } = texture;
     public Rectangle SourceRectangle { get; set; } = sourceRectangle;
+    public int MapLayer = 0;
+    public Tile SetMapLayer(int layer) {
+        MapLayer = layer;
+        return this;
+    }
 
     public string Name { get; set; } = name;
     public Tile SetName(string name) {
@@ -50,6 +55,8 @@ public class Tile(Texture2D texture, Rectangle sourceRectangle, string name) {
     }
 
     public void Draw(SpriteBatch spriteBatch, Rectangle position) {
+        if (Texture is null)
+            return;
         spriteBatch.Draw(Texture, position, SourceRectangle, DrawColor);
     }
 

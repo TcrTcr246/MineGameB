@@ -105,7 +105,7 @@ public class GameScene() : Scene("game") {
         register(new(tileset, new(32, 64, 32, 32), "blank_white")).SetMapColor(Color.White).SetDrawColor(Color.White);
         register(new(tileset, new(32, 64, 32, 32), "blank_blue")).SetMapColor(Color.AliceBlue).SetDrawColor(Color.AliceBlue);
         newTile("floor1", 0, 0).SetMapColor(Color.DarkGray);
-        newTile("floor2", 1, 0).SetMapColor(Color.DarkGray);
+        newTile("floor2", 1, 0).SetMapColor(Color.DarkGray).SetMapLayer(1);
         newTile("wall", 3, 0).SetMapColor(Color.Gray).SetSolid().SetLightPassable(false).SetDurity(4f);
 
         LocalMap = new Map().Load();
@@ -132,14 +132,25 @@ public class GameScene() : Scene("game") {
         ms = Mouse.GetState();
 
         Camera.ScaleIndependent(gameTime);
-        Camera.MoveIndependent(gameTime, !Keyboard.GetState().IsKeyDown(Keys.LeftShift)?500:3000);
+        var LS = Keyboard.GetState().IsKeyDown(Keys.LeftShift);
+        var LC = Keyboard.GetState().IsKeyDown(Keys.LeftControl);
+        Camera.MoveIndependent(gameTime, (!LS ? 500 : 5000) + (!LC ? 0 : 10000));
 
-        Point loc = LocalMap.GetIndexAtPos(Camera2D.MouseWorld);
-        Tile tile = LocalMap.GetTileObjectAtIndex(loc);
-        if (tile.IsBreakable && ms.LeftButton==ButtonState.Pressed)
-            LocalMap.SetTileAtIndex(loc, TileRegister.GetIdByName("floor1"));
-        if (ms.RightButton == ButtonState.Pressed)
-            LocalMap.SetTileAtIndex(loc, TileRegister.GetIdByName("wall"));
+        if (LocalMap.InWorldZoom) {
+            Point loc = LocalMap.GetIndexAtPos(Camera2D.MouseWorld);
+            Tile tile = LocalMap.GetTileObjectAtIndex(loc);
+
+            if (tile.IsBreakable && ms.LeftButton == ButtonState.Pressed) {
+                if (LocalMap.GetTileNameAtIndex(loc) == "wall")
+                    LocalMap.RemoveTileAtIndex(loc);
+            }
+
+            if (ms.RightButton == ButtonState.Pressed) {
+                var n = LocalMap.GetTileObjectAtIndex(loc);
+                if (!n.IsSolid)
+                    LocalMap.SetTileAtIndex(loc, TileRegister.GetIdByName("wall"));
+            }
+        }
 
         base.Update(gameTime);
     }

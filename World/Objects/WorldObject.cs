@@ -6,6 +6,11 @@ public class WorldObject {
     public Point TilePosition { get; protected set; }
     public Vector2 Position { get; protected set; }
     protected Map MapRef { get; private set; }
+    public int MapLayer { get; protected set; } = 5;
+    public WorldObject SetMapLayer(int n) {
+        MapLayer = n;
+        return this;
+    }
 
     public WorldObject SetMap(Map map) {
         MapRef = map;
