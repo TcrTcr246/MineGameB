@@ -133,47 +133,59 @@ public class Map {
     const int darkSeeRange = 2;
 
     public Texture2D LightTexture;
+    // Optimized BuildVisibleLightTexture for your Map class
+
+    private Color[] lightDataCache; // Reuse array to avoid allocations
+
     public void BuildVisibleLightTexture(Rectangle r) {
         int w = r.Width;
         int h = r.Height;
-
         if (!(w > 0 && h > 0))
             return;
 
+        // Reuse texture if possible
         if (LightTexture == null ||
             LightTexture.Width != w ||
             LightTexture.Height != h) {
-            LightTexture = new Texture2D(
-                Game1.Instance.GraphicsDevice, w, h);
+            LightTexture?.Dispose();
+            LightTexture = new Texture2D(Game1.Instance.GraphicsDevice, w, h);
+            lightDataCache = new Color[w * h];
         }
 
-        Color[] data = new Color[w * h];
+        // Reuse array instead of allocating new one each frame
+        Color[] data = lightDataCache;
 
-        for (int y = 0; y < h; y++)
+        for (int y = 0; y < h; y++) {
             for (int x = 0; x < w; x++) {
                 int tx = r.X + x;
                 int ty = r.Y + y;
-
                 bool isLight = false;
-                for (int _y = -darkSeeRange; _y <= darkSeeRange; _y++)
+
+                // Check surrounding tiles for light passability
+                for (int _y = -darkSeeRange; _y <= darkSeeRange; _y++) {
                     for (int _x = -darkSeeRange; _x <= darkSeeRange; _x++) {
                         int nx = tx + _x;
                         int ny = ty + _y;
+
+                        // Bounds check
                         if (nx < 0 || nx >= Width || ny < 0 || ny >= Height)
                             continue;
+
                         int topTile = GetTileAtIndex(new Point(nx, ny));
                         if (GameScene.TileRegister.GetTileById(topTile).IsLightPassable) {
                             isLight = true;
-                            break;
+                            goto FoundLight; // Break out of both loops
                         }
                     }
+                }
 
+FoundLight:
                 data[x + y * w] = isLight ? Color.White : Color.Black;
             }
+        }
 
         LightTexture.SetData(data);
     }
-
     List<Point> modifiedTexPoints = [];
     List<Color> modifiedTexColors = [];
 

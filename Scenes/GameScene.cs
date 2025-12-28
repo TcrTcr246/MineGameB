@@ -17,7 +17,8 @@ public class GameScene() : Scene("game") {
     public static Map LocalMap { get; set; }
     public static TileRegister TileRegister { get; set; }
 
-    // static Effects.ShadowEffect shadowEffect;
+    static Effects.ShadowEffect shadowEffect;
+    const bool useShadowEffect = true;
 
     static ContentManager Content => Game1.Instance.Content;
     static Camera2D Camera => Game1.Instance.Camera;
@@ -127,8 +128,8 @@ public class GameScene() : Scene("game") {
         newTile(SurfaceTileset, "sandVar2", 1, 2).SetMapColor(Color.LightGoldenrodYellow);
         newTile(SurfaceTileset, "sandVar3", 2, 2).SetMapColor(Color.LightGoldenrodYellow);
         newTile(SurfaceTileset, "water", 0, 3).SetMapColor(Color.LightBlue).SetSolid();
-        newTile(SurfaceTileset, "mountain", 0, 4).SetMapColor(Color.LightGray).SetSolid().SetDurity(150f);
-        newTile(SurfaceTileset, "highMountain", 1, 4).SetMapColor(Color.DarkGray).SetSolid().SetDurity(450f);
+        newTile(SurfaceTileset, "mountain", 0, 4).SetMapColor(Color.LightGray).SetSolid().SetDurity(150f).SetLightPassable(false);
+        newTile(SurfaceTileset, "highMountain", 1, 4).SetMapColor(Color.DarkGray).SetSolid().SetDurity(450f).SetLightPassable(false);
 
 
         CaveMap = new Map();
@@ -141,8 +142,8 @@ public class GameScene() : Scene("game") {
 
         // AddGears(objsImage, CaveMap);
 
-        // var shadowTex = Content.Load<Texture2D>("shadow");
-        // shadowEffect = new(Content.Load<Effect>("RadialEffect"), LocalMap, shadowTex);
+        if (useShadowEffect)
+            shadowEffect = new(Content.Load<Effect>("RadialEffect"), LocalMap, Content.Load<Texture2D>("shadow"));
 
         Player.SetPosition(new Vector2(LocalMap.WorldWidth / 2, LocalMap.WorldHeight / 2));
         Camera.MoveHardTo(Player.Center.ToVector2());
@@ -181,8 +182,8 @@ public class GameScene() : Scene("game") {
         }
 
         Player.Update(gameTime, LocalMap);
-
-        // shadowEffect.Update(gameTime);
+        if (useShadowEffect)
+            shadowEffect.Update(gameTime);
 
         frameCount++;
         base.Update(gameTime);
@@ -196,7 +197,8 @@ public class GameScene() : Scene("game") {
         Player.Draw(spriteBatch);
         spriteBatch.End();
 
-        // shadowEffect.Draw(spriteBatch);
+        if (useShadowEffect)
+            shadowEffect.Draw(spriteBatch);
 
         base.Draw(spriteBatch);
     }
