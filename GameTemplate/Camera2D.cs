@@ -38,10 +38,8 @@ public class Camera2D {
         DeadZone.Height
     );
 
-    public Camera2D() { }
-
     MouseState ms, lastMs;
-    public void Load() {
+    public Camera2D() {
         lastMs = Mouse.GetState();
         ms = Mouse.GetState();
     }
@@ -119,8 +117,8 @@ public class Camera2D {
     float TargetZoom = uniqueFloatCode;
     float scrollLerpSpeed = 3f;
 
-    public void ScaleIndependent(GameTime gameTime, float scrollSpeed=100f, float lerpSpeed=7f, float minimum=0.005f, float maximum=2.5f) {
-        if (TargetZoom == uniqueFloatCode)
+    public void ScaleIndependent(GameTime gameTime, float scrollSpeed=100f, float lerpSpeed=7f, float minimum=0.001f, float maximum=2.5f) {
+        if (TargetZoom == uniqueFloatCode) // 0.001f 0.45f
             TargetZoom = Zoom;
 
         int sc = ms.ScrollWheelValue - lastMs.ScrollWheelValue;

@@ -47,20 +47,24 @@ public class Map {
 
     public WorldObject AddObjectRel(Point pct, WorldObject obj) => AddObject(pct + new Point(Width / 2, Height / 2), obj);
 
-    protected Generator generator;
-    public int GetSeed() => (int)generator.Seed;
+    public Generator Generator;
+
+    public int GetSeed() => (int)Generator.Seed;
 
     public Map() {
         Tiles = new int[Width, Height, Depth];
         Objects = [];
-        generator = new Generator(Width, Height, TileSize, Depth);
+        Generator = new Generator(Width, Height, TileSize, Depth);
         Breaks = [];
+
+        Load();
     }
 
     private Texture2D breakOverlay;
     public Map Load() {
-        generator.FlatGenerate(GameScene.TileRegister.GetIdByName("floor1"), 0);
-        Tiles = generator.Tiles;
+        Generator.RandomSeed();
+        Generator.FlatGenerate(GameScene.TileRegister.GetIdByName("floor1"), 0);
+        Tiles = Generator.Tiles;
         breakOverlay = Game1.Instance.Content.Load<Texture2D>("TileCrackOverlay");
 
         WorldWidth = Width * TileSize;
@@ -68,16 +72,61 @@ public class Map {
         return this;
     }
 
-    public Map NewGenerate(Func<int, int, int> f, int layer = 0) {
-        generator.FuncGenerate(f, layer);
-        Tiles = generator.Tiles;
+    public Map NewFastGenerate(Func<int, int, int> f, int layer = 0) {
+        Generator.FuncGenerate(f, layer);
+        Tiles = Generator.Tiles;
         return this;
     }
 
-    public Map Generate() {
-        generator.Seed = null;
-        generator.Generate();
-        Tiles = generator.Tiles;
+    public Map NewGenerate(int[,] tileIds) {
+        if (tileIds == null)
+            throw new ArgumentNullException(nameof(tileIds));
+
+        int tilesWidth = tileIds.GetLength(0);
+        int tilesHeight = tileIds.GetLength(1);
+
+        if (tilesWidth != Width || tilesHeight != Height)
+            throw new ArgumentException($"Tile array dimensions ({tilesWidth}x{tilesHeight}) don't match map dimensions ({Width}x{Height})");
+
+        // Clear all tiles first
+        for (int x = 0; x < Width; x++) {
+            for (int y = 0; y < Height; y++) {
+                for (int z = 0; z < Depth; z++) {
+                    Tiles[x, y, z] = 0;
+                }
+            }
+        }
+
+        // Copy the provided tile IDs to the base layer
+        for (int x = 0; x < Width; x++) {
+            for (int y = 0; y < Height; y++) {
+                Tiles[x, y, 0] = tileIds[x, y];
+            }
+        }
+
+        return this;
+    }
+
+    public Map NewGenerate(int[,,] tileIds) {
+        if (tileIds == null)
+            throw new ArgumentNullException(nameof(tileIds));
+
+        int tilesWidth = tileIds.GetLength(0);
+        int tilesHeight = tileIds.GetLength(1);
+        int tilesDepth = tileIds.GetLength(2);
+
+        if (tilesWidth != Width || tilesHeight != Height || tilesDepth != Depth)
+            throw new ArgumentException($"Tile array dimensions ({tilesWidth}x{tilesHeight}x{tilesDepth}) don't match map dimensions ({Width}x{Height}x{Depth})");
+
+        // Copy the provided tile IDs to all layers
+        for (int x = 0; x < Width; x++) {
+            for (int y = 0; y < Height; y++) {
+                for (int z = 0; z < Depth; z++) {
+                    Tiles[x, y, z] = tileIds[x, y, z];
+                }
+            }
+        }
+
         return this;
     }
 
@@ -168,18 +217,17 @@ public class Map {
         drawedTexture.SetData(flat);
     }
 
-    public Rectangle GetVisibleTileRect(Rectangle cameraRect) {
+    public Rectangle GetVisibleTileRect(Rectangle cameraRect, int border=1) {
         int startX = Math.Max(0, cameraRect.Left / TileSize);
         int startY = Math.Max(0, cameraRect.Top / TileSize);
         int endX = Math.Min(Width - 1, cameraRect.Right / TileSize);
         int endY = Math.Min(Height - 1, cameraRect.Bottom / TileSize);
 
-        int b = 1;
         return new Rectangle(
-            startX - b,
-            startY - b,
-            endX - startX + 1 + b * 2,
-            endY - startY + 1 + b * 2
+            startX - border,
+            startY - border,
+            endX - startX + 1 + border * 2,
+            endY - startY + 1 + border * 2
         );
     }
 
@@ -367,6 +415,32 @@ public class Map {
     }
     // break end
 
+
+    public bool TouchesAnySolidTile(Rectangle player) {
+        int startX = player.Left / TileSize;
+        int endX = (player.Right - 1) / TileSize;
+        int startY = player.Top / TileSize;
+        int endY = (player.Bottom - 1) / TileSize;
+
+        for (int x = startX; x <= endX; x++) {
+            for (int y = startY; y <= endY; y++) {
+                if (!IsValidIndex(new Point(x, y)))
+                    continue;
+
+                int tileId = GetTileAtIndex(new Point(x, y));
+                if (tileId == 0)
+                    continue;
+
+                Tile tile = GameScene.TileRegister.GetTileById(tileId);
+                if (tile.IsSolid)
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+
     Texture2D drawedTexture;
     KeyboardState ks, lks;
     bool firstFrame = true;
@@ -375,11 +449,6 @@ public class Map {
     public void Update(GameTime gameTime) {
         lks = ks;
         ks = Keyboard.GetState();
-
-        if (ks.IsKeyDown(Keys.R) && !lks.IsKeyDown(Keys.R)) {
-            Generate();
-            firstFrame = true;
-        }
 
         JustOutsideWorldZoom = !InWorldZoom && !wasInWorldZoom;
         wasInWorldZoom = !InWorldZoom;

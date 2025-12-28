@@ -7,7 +7,7 @@ using MineGameB.World;
 namespace MineGameB;
 public class Game1 : GameTemplate.Game {
     public static Game1 Instance { get; private set; }
-    Texture2D dotTex;
+    public static Texture2D Pixel { get; private set; }
 
     protected override void Initialize() {
         Camera.TranslateBackToWorldPos = false;
@@ -25,8 +25,8 @@ public class Game1 : GameTemplate.Game {
     }
 
     protected override void LoadContent() {
-        dotTex = new Texture2D(GraphicsDevice, 1, 1);
-        dotTex.SetData([Color.White]);
+        Pixel = new Texture2D(GraphicsDevice, 1, 1);
+        Pixel.SetData([Color.White]);
 
         Scene.AddScene(new GameScene());
 
