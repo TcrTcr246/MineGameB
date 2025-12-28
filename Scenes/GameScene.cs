@@ -106,7 +106,7 @@ public class GameScene() : Scene("game") {
         register(new(tileset, new(32, 64, 32, 32), "blank_blue")).SetMapColor(Color.AliceBlue).SetDrawColor(Color.AliceBlue);
         newTile("floor1", 0, 0).SetMapColor(Color.DarkGray);
         newTile("floor2", 1, 0).SetMapColor(Color.DarkGray);
-        newTile("wall", 3, 0).SetMapColor(Color.Gray).SetSolid().SetLightPassable(false).SetDurity(4f);
+        newTile("wall", 3, 0).SetMapColor(Color.Gray).SetSolid().SetLightPassable(false).SetDurity(150f);
 
         LocalMap = new Map().Load();
         /* LocalMap.NewGenerate((x, y) => {
@@ -125,6 +125,7 @@ public class GameScene() : Scene("game") {
         base.Load();
     }
 
+    int frameCount = 0;
     public override void Update(GameTime gameTime) {
         LocalMap.Update(gameTime);
 
@@ -132,6 +133,7 @@ public class GameScene() : Scene("game") {
         ms = Mouse.GetState();
 
         Camera.ScaleIndependent(gameTime);
+
         var LS = Keyboard.GetState().IsKeyDown(Keys.LeftShift);
         var LC = Keyboard.GetState().IsKeyDown(Keys.LeftControl);
         Camera.MoveIndependent(gameTime, (!LS ? 500 : 5000) + (!LC ? 0 : 10000));
@@ -140,9 +142,8 @@ public class GameScene() : Scene("game") {
             Point loc = LocalMap.GetIndexAtPos(Camera2D.MouseWorld);
             Tile tile = LocalMap.GetTileObjectAtIndex(loc);
 
-            if (tile.IsBreakable && ms.LeftButton == ButtonState.Pressed) {
-                if (LocalMap.GetTileNameAtIndex(loc) == "wall")
-                    LocalMap.RemoveTileAtIndex(loc);
+            if (ms.LeftButton == ButtonState.Pressed) {
+                LocalMap.BreakTileAtIndex(loc, gameTime);
             }
 
             if (ms.RightButton == ButtonState.Pressed) {
@@ -151,8 +152,9 @@ public class GameScene() : Scene("game") {
             }
         }
 
-        shadowEffect.Update(gameTime);
+        // shadowEffect.Update(gameTime);
 
+        frameCount++;
         base.Update(gameTime);
     }
 
@@ -163,7 +165,7 @@ public class GameScene() : Scene("game") {
         LocalMap.Draw(spriteBatch);
         spriteBatch.End();
 
-        shadowEffect.Draw(spriteBatch);
+        // shadowEffect.Draw(spriteBatch);
 
         base.Draw(spriteBatch);
     }

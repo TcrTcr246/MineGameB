@@ -26,7 +26,7 @@ public class Generator {
     public float _lacunarity = 2f;
     public int _bands = 2;
     public float _bandWidth = .15f;
-    public int? _seed = int.MinValue;
+    public int? Seed = null;
     static Random seedRng = new();
 
     private static int GetFloorTile(Random rng) {
@@ -61,8 +61,8 @@ public class Generator {
         bands = bands == int.MinValue ? _bands : bands;
         bandWidth = float.IsNaN(bandWidth) ? _bandWidth : bandWidth;
 
-        _seed = _seed == int.MinValue ? seedRng.Next() : (int)_seed;
-        var rng = new Random((int)_seed);
+        Seed = Seed is null ? seedRng.Next() : (int)Seed;
+        var rng = new Random((int)Seed);
 
         InitializePermutation(rng);
 

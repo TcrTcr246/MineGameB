@@ -12,15 +12,15 @@ public class Tile(Texture2D texture, Rectangle sourceRectangle, string name) {
         return this;
     }
 
-    public string Name { get; protected set; } = name;
-    public Tile SetName(string name) {
-        Name = name;
+    public bool IsSolid { get; protected set; } = false;
+    public Tile SetSolid(bool v = true) {
+        IsSolid = v;
         return this;
     }
 
-    public bool IsSolid { get; protected set; } = false;
-    public Tile SetSolid (bool v = false) {
-        IsSolid = v;
+    public string Name { get; protected set; } = name;
+    public Tile SetName(string name) {
+        Name = name;
         return this;
     }
 

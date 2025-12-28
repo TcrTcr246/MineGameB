@@ -7,6 +7,7 @@ using MineGameB.World.Tiles;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Metadata;
 
 namespace MineGameB.World;
 public class Map {
@@ -47,17 +48,20 @@ public class Map {
     public WorldObject AddObjectRel(Point pct, WorldObject obj) => AddObject(pct + new Point(Width / 2, Height / 2), obj);
 
     protected Generator generator;
-    public int GetSeed() => (int)generator._seed;
+    public int GetSeed() => (int)generator.Seed;
 
     public Map() {
         Tiles = new int[Width, Height, Depth];
         Objects = [];
         generator = new Generator(Width, Height, TileSize, Depth);
+        Breaks = [];
     }
 
+    private Texture2D breakOverlay;
     public Map Load() {
         generator.FlatGenerate(GameScene.TileRegister.GetIdByName("floor1"), 0);
         Tiles = generator.Tiles;
+        breakOverlay = Game1.Instance.Content.Load<Texture2D>("TileCrackOverlay");
 
         WorldWidth = Width * TileSize;
         WorldHeight = Height * TileSize;
@@ -71,6 +75,7 @@ public class Map {
     }
 
     public Map Generate() {
+        generator.Seed = null;
         generator.Generate();
         Tiles = generator.Tiles;
         return this;
@@ -277,6 +282,91 @@ public class Map {
         items?.FirstOrDefault(predicate);
 
 
+    // break
+    protected Dictionary<Point, TileBreakData> Breaks;
+    private float regenDelay = 1f; // Seconds before regeneration starts
+    private float regenSpeed = 8f; // Break points regenerated per second
+
+    public class TileBreakData {
+        public int BreakCount;
+        public float LastHitTime;
+        public TileBreakData(int breakCount, float lastHitTime) {
+            BreakCount = breakCount;
+            LastHitTime = lastHitTime;
+        }
+    }
+
+    public void BreakTileAtIndex(Point p, GameTime gameTime) {
+        int topTileId = GetTileAtIndex(p);
+        Tile tile = GameScene.TileRegister.GetTileById(topTileId);
+        if (tile?.IsBreakable != true)
+            return;
+        int maxBreaks = (int)(tile.Durity * 10);
+        float currentTime = (float)gameTime.TotalGameTime.TotalSeconds;
+        if (!Breaks.TryGetValue(p, out TileBreakData breakData)) {
+            breakData = new TileBreakData(0, currentTime);
+            Breaks[p] = breakData;
+        }
+        breakData.BreakCount++;
+        breakData.LastHitTime = currentTime;
+        if (breakData.BreakCount >= maxBreaks) {
+            RemoveTileAtIndex(p);
+            Breaks.Remove(p);
+        }
+    }
+
+    public void UpdateBreak(GameTime gameTime) {
+        float currentTime = (float)gameTime.TotalGameTime.TotalSeconds;
+        List<Point> toRemove = [];
+        foreach (var kvp in Breaks) {
+            Point pos = kvp.Key;
+            TileBreakData breakData = kvp.Value;
+            float timeSinceHit = currentTime - breakData.LastHitTime;
+            if (timeSinceHit >= regenDelay) {
+                // Regenerate
+                float regenAmount = (timeSinceHit - regenDelay) * regenSpeed;
+                int newBreakCount = Math.Max(0, breakData.BreakCount - (int)regenAmount);
+                if (newBreakCount <= 0) {
+                    toRemove.Add(pos);
+                } else {
+                    breakData.BreakCount = newBreakCount;
+                }
+            }
+        }
+        foreach (Point pos in toRemove) {
+            Breaks.Remove(pos);
+        }
+    }
+
+    private int breakOverlayFrames = 32; // Number of frames in your texture
+
+    public void DrawBreakOverlay(SpriteBatch spriteBatch) {
+        foreach (var kvp in Breaks) {
+            Point tilePos = kvp.Key;
+            TileBreakData breakData = kvp.Value;
+            int topTileId = GetTileAtIndex(tilePos);
+            Tile tile = GameScene.TileRegister.GetTileById(topTileId);
+            if (tile == null)
+                continue;
+            int maxBreaks = (int)(tile.Durity * 10);
+            float breakProgress = (float)breakData.BreakCount / maxBreaks;
+            // Calculate which frame to show - adjusted to distribute evenly
+            int frameIndex = Math.Min((int)(breakProgress * (breakOverlayFrames + 0.99f)), breakOverlayFrames - 1);
+            // Calculate source rectangle (assuming frames are horizontal)
+            Rectangle sourceRect = new Rectangle(
+                frameIndex * TileSize, // X position in texture
+                0,                      // Y position in texture
+                TileSize,              // Width
+                TileSize               // Height
+            );
+            // Convert tile position to screen position
+            Vector2 screenPos = new Vector2(tilePos.X * TileSize, tilePos.Y * TileSize);
+            // Draw the appropriate frame
+            spriteBatch.Draw(breakOverlay, screenPos, sourceRect, Color.White);
+        }
+    }
+    // break end
+
     Texture2D drawedTexture;
     KeyboardState ks, lks;
     bool firstFrame = true;
@@ -301,6 +391,8 @@ public class Map {
         foreach (var o in Objects.Values.Reverse())
             foreach (var o2 in o)
                 o2.Update(gameTime);
+
+        UpdateBreak(gameTime);
     }
 
     public void Draw(SpriteBatch spriteBatch) {
@@ -335,6 +427,8 @@ public class Map {
                 for (int n = 0; n <= layerRange; n++)
                     foreach (var o in list)
                         DrawIfVisible(o, () => o.DrawLayer(spriteBatch, n));
+
+            DrawBreakOverlay(spriteBatch);
         }
     }
 
