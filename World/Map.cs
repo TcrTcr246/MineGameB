@@ -12,8 +12,8 @@ using System.Reflection.Metadata;
 namespace MineGameB.World;
 public class Map {
     public int TileSize { get; private set; } = 32;
-    public int Width { get; private set; } = 512;
-    public int Height { get; private set; } = 512;
+    public int Width { get; private set; } = 500;
+    public int Height { get; private set; } = 500;
     public int Depth { get; private set; } = 4;
     public int WorldWidth { get; private set; } = 0;
     public int WorldHeight { get; private set; } = 0;

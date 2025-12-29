@@ -210,13 +210,12 @@ public class Generator {
         var rng = new Random(GetSeed());
         var TileRegister = GameScene.TileRegister;
 
-        // Initialize the 3D array with proper dimensions
-        int[,,] tiles = new int[Width, Height, Depth];
+        int[,,] tiles = new int[Width, Height, Depth]; // ONLY 2 layers
 
-        // Generate two different noise maps
         var elevationNoise = GenerateNoiseMap(
             Width, Height, rng,
             scale: 240f, octaves: 6, persistence: 0.5f, lacunarity: 2.0f);
+
         var moistureNoise = GenerateNoiseMap(
             Width, Height, new Random(rng.Next()),
             scale: 180f, octaves: 4, persistence: 0.4f, lacunarity: 2.5f);
@@ -226,125 +225,58 @@ public class Generator {
                 float elevation = elevationNoise[x, y];
                 float moisture = moistureNoise[x, y];
 
-                // Apply edge falloff to elevation
-                float edgeDistX = Math.Min(x, Width - 1 - x) / (Width * 0.5f);
-                float edgeDistY = Math.Min(y, Height - 1 - y) / (Height * 0.5f);
-                float edgeDist = Math.Min(edgeDistX, edgeDistY);
-                float falloff = Smoothstep(0f, 0.15f, edgeDist);
-                elevation = falloff > 0 ? elevation / falloff : elevation;
+                // --- Border ---
+                float distX = Math.Min(x, Width - 1 - x);
+                float distY = Math.Min(y, Height - 1 - y);
+                float dist = Math.Min(distX, distY);
 
-                // Calculate distance from edge for smooth border
-                float distFromEdgeX = Math.Min(x, Width - 1 - x);
-                float distFromEdgeY = Math.Min(y, Height - 1 - y);
-                float distFromEdge = Math.Min(distFromEdgeX, distFromEdgeY);
+                float borderNoise = (elevation + moisture) * 3f;
+                bool isBorder = dist < (20f + borderNoise);
 
-                // Smooth border transition - closer to edge = higher chance of ultraRock
-                float borderThreshold = 20f; // Base distance for border (good for 1000x1000 maps)
-                float borderNoise = (elevationNoise[x, y] + moistureNoise[x, y]) * 3f; // Add noise variation
-                bool isMapBorder = distFromEdge < (borderThreshold + borderNoise);
-
-                int baseTileId = 0;
-                int topTileId = 0;
-
-                // Place ultraRock at map borders with natural edge
-                if (isMapBorder) {
-                    baseTileId = TileRegister.GetIdByName("water");
-                    tiles[x, y, 0] = baseTileId;
+                if (isBorder) {
+                    tiles[x, y, 0] = TileRegister.GetIdByName("water");
                     tiles[x, y, 1] = TileRegister.GetIdByName("ultraRock");
-                    continue; // Skip normal terrain generation for border tiles
+                    continue;
                 }
 
-                // Water
+                // --- Ground layer (0) ---
+                int groundId;
+
                 if (elevation < 0.3f) {
-                    baseTileId = TileRegister.GetIdByName("water");
-                }
-                // Beach/Sand
-                else if (elevation < 0.38f) {
-                    int[] priorities = { 10, 10, 1, 1 };
-                    int variant = GetWeightedRandomVariant(rng, priorities);
-                    baseTileId = TileRegister.GetIdByName("sandVar1") + variant;
-                }
-                // Land biomes based on elevation and moisture
-                else if (elevation < 0.75f) {
-                    // Desert (low moisture)
+                    groundId = TileRegister.GetIdByName("water");
+                } else if (elevation < 0.38f) {
+                    int v = GetWeightedRandomVariant(rng, new[] { 10, 10, 1, 1 });
+                    groundId = TileRegister.GetIdByName("sandVar1") + v;
+                } else {
                     if (moisture < 0.3f) {
-                        int[] priorities = { 5, 5 };
-                        int variant = GetWeightedRandomVariant(rng, priorities);
-                        baseTileId = TileRegister.GetIdByName("sandVar1") + variant;
-                    }
-                    // Forest (high moisture) - increased priority
-                    else if (moisture > 0.5f) {
-                        int[] priorities = { 5, 5, 3 };
-                        int variant = GetWeightedRandomVariant(rng, priorities);
-                        baseTileId = TileRegister.GetIdByName("forestVar1") + variant;
-                    }
-                    // Grassland (medium moisture) - lower priority
-                    else {
-                        int[] priorities = { 7, 7, 7, 1 };
-                        int variant = GetWeightedRandomVariant(rng, priorities);
-                        baseTileId = TileRegister.GetIdByName("grassVar1") + variant;
-                    }
-                }
-                // Mountains - with underlying land
-                else if (elevation < 0.85f) {
-                    // Base layer: determine land type based on moisture
-                    if (moisture > 0.5f) {
-                        int[] priorities = { 5, 5, 3 };
-                        int variant = GetWeightedRandomVariant(rng, priorities);
-                        baseTileId = TileRegister.GetIdByName("forestVar1") + variant;
+                        int v = GetWeightedRandomVariant(rng, new[] { 5, 5 });
+                        groundId = TileRegister.GetIdByName("sandVar1") + v;
+                    } else if (moisture > 0.5f) {
+                        int v = GetWeightedRandomVariant(rng, new[] { 5, 5, 3 });
+                        groundId = TileRegister.GetIdByName("forestVar1") + v;
                     } else {
-                        int[] priorities = { 7, 7, 7, 1 };
-                        int variant = GetWeightedRandomVariant(rng, priorities);
-                        baseTileId = TileRegister.GetIdByName("grassVar1") + variant;
+                        int v = GetWeightedRandomVariant(rng, new[] { 7, 7, 7, 1 });
+                        groundId = TileRegister.GetIdByName("grassVar1") + v;
                     }
-                    // Top layer: mountain
-                    topTileId = TileRegister.GetIdByName("mountain");
-                }
-                // High mountains - with mountain underneath
-                else if (elevation < 0.95f) {
-                    // Base layer: determine land type based on moisture
-                    if (moisture > 0.5f) {
-                        int[] priorities = { 5, 5, 3 };
-                        int variant = GetWeightedRandomVariant(rng, priorities);
-                        baseTileId = TileRegister.GetIdByName("forestVar1") + variant;
-                    } else {
-                        int[] priorities = { 7, 7, 7, 1 };
-                        int variant = GetWeightedRandomVariant(rng, priorities);
-                        baseTileId = TileRegister.GetIdByName("grassVar1") + variant;
-                    }
-                    // Layer 1: mountain
-                    tiles[x, y, 1] = TileRegister.GetIdByName("mountain");
-                    // Layer 2: high mountain
-                    topTileId = TileRegister.GetIdByName("highMountain");
-                    tiles[x, y, 2] = topTileId;
-                }
-                // Ultra high mountains - with mountain and high mountain underneath
-                else {
-                    // Base layer: determine land type based on moisture
-                    if (moisture > 0.5f) {
-                        int[] priorities = { 5, 5, 3 };
-                        int variant = GetWeightedRandomVariant(rng, priorities);
-                        baseTileId = TileRegister.GetIdByName("forestVar1") + variant;
-                    } else {
-                        int[] priorities = { 7, 7, 7, 1 };
-                        int variant = GetWeightedRandomVariant(rng, priorities);
-                        baseTileId = TileRegister.GetIdByName("grassVar1") + variant;
-                    }
-                    // Layer 1: mountain
-                    tiles[x, y, 1] = TileRegister.GetIdByName("mountain");
-                    // Layer 2: high mountain
-                    tiles[x, y, 2] = TileRegister.GetIdByName("highMountain");
-                    // Layer 3: just high mountain (no special ultra tile)
-                    topTileId = TileRegister.GetIdByName("highMountain");
-                    tiles[x, y, 3] = topTileId;
                 }
 
-                tiles[x, y, 0] = baseTileId;
-                if (topTileId != 0 && elevation < 0.9f) {
-                    tiles[x, y, 1] = topTileId;
+                tiles[x, y, 0] = groundId;
+
+                // --- Mountain layer (1) ---
+                int mountainId = 0;
+
+                if (elevation >= 0.75f && elevation < 0.85f) {
+                    mountainId = TileRegister.GetIdByName("mountain");
+                } else if (elevation >= 0.85f && elevation < 0.93f) {
+                    mountainId = TileRegister.GetIdByName("highMountain");
+                } else if (elevation >= 0.93f) {
+                    mountainId = TileRegister.GetIdByName("ultraHighMountain");
                 }
+
+                tiles[x, y, 1] = mountainId;
             }
         }
+
         return tiles;
     }
 

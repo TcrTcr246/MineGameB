@@ -18,7 +18,7 @@ public class GameScene() : Scene("game") {
     public static TileRegister TileRegister { get; set; }
 
     static Effects.ShadowEffect shadowEffect;
-    const bool useShadowEffect = true;
+    bool useShadowEffect = false;
 
     static ContentManager Content => Game1.Instance.Content;
     static Camera2D Camera => Game1.Instance.Camera;
@@ -166,9 +166,9 @@ public class GameScene() : Scene("game") {
 
         if (LS) {
             Camera.ScaleIndependent(gameTime, 100f, 7f, 0.008f);
-            Camera.MoveIndependent(gameTime, 3000 + (!LC ? 0 : 15000));
+            Camera.MoveIndependent(gameTime, LC ? 20000 : 3000);
         } else {
-            Camera.ScaleIndependent(gameTime, 100f, 7f, 0.45f);
+            Camera.ScaleIndependent(gameTime, 100f, 7f, 0.55f);
             Camera.MoveTo(gameTime, Player.Center.ToVector2());
         }
 
