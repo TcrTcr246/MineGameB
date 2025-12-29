@@ -242,7 +242,7 @@ public class Generator {
                 }
                 // Beach/Sand
                 else if (elevation < 0.38f) {
-                    int[] priorities = { 5, 5, 3 };
+                    int[] priorities = { 10, 10, 1, 1 };
                     int variant = GetWeightedRandomVariant(rng, priorities);
                     baseTileId = TileRegister.GetIdByName("sandVar1") + variant;
                 }
@@ -250,7 +250,7 @@ public class Generator {
                 else if (elevation < 0.75f) {
                     // Desert (low moisture)
                     if (moisture < 0.3f) {
-                        int[] priorities = { 5, 5, 3 };
+                        int[] priorities = { 5, 5 };
                         int variant = GetWeightedRandomVariant(rng, priorities);
                         baseTileId = TileRegister.GetIdByName("sandVar1") + variant;
                     }

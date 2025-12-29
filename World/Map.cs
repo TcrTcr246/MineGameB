@@ -179,7 +179,7 @@ public class Map {
                     }
                 }
 
-FoundLight:
+                FoundLight:
                 data[x + y * w] = isLight ? Color.White : Color.Black;
             }
         }

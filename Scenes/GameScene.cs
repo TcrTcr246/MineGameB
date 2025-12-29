@@ -127,6 +127,7 @@ public class GameScene() : Scene("game") {
         newTile(SurfaceTileset, "sandVar1", 0, 2).SetMapColor(Color.LightGoldenrodYellow);
         newTile(SurfaceTileset, "sandVar2", 1, 2).SetMapColor(Color.LightGoldenrodYellow);
         newTile(SurfaceTileset, "sandVar3", 2, 2).SetMapColor(Color.LightGoldenrodYellow);
+        newTile(SurfaceTileset, "sandVar4", 3, 2).SetMapColor(Color.LightGoldenrodYellow);
         newTile(SurfaceTileset, "water", 0, 3).SetMapColor(Color.LightBlue).SetSolid();
         newTile(SurfaceTileset, "mountain", 0, 4).SetMapColor(Color.LightGray).SetSolid().SetDurity(150f).SetLightPassable(false);
         newTile(SurfaceTileset, "highMountain", 1, 4).SetMapColor(Color.DarkGray).SetSolid().SetDurity(450f).SetLightPassable(false);
