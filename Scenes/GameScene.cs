@@ -23,6 +23,7 @@ public class GameScene() : Scene("game") {
 
     static Effects.ShadowEffect shadowEffect;
     bool useShadowEffect = false;
+    private bool isMapReady = false;
 
     static ContentManager Content => Game1.Instance.Content;
     static Camera2D Camera => Game1.Instance.Camera;
@@ -161,22 +162,37 @@ public class GameScene() : Scene("game") {
             var tiles = await SurfaceMap.Generator.GenerateTopograficMapAsync();
             SurfaceMap.NewGenerate(tiles);
             loadingScreen.IsVisible = false;
+            isMapReady = true;
         });
 
         LocalMap = SurfaceMap;
 
         // AddGears(objsImage, CaveMap);
 
-        if (useShadowEffect)
-            shadowEffect = new(Content.Load<Effect>("RadialEffect"), LocalMap, Content.Load<Texture2D>("shadow"));
-
-        Player.SetPosition(new Vector2(LocalMap.WorldWidth / 2, LocalMap.WorldHeight / 2));
-        Camera.MoveHardTo(Player.Center.ToVector2());
+        // Shadow effect and player initialization will happen after map generation
 
         base.Load();
     }
 
     public override void Update(GameTime gameTime) {
+        loadingScreen.Update(gameTime);
+
+        if (!isMapReady) {
+            base.Update(gameTime);
+            return;
+        }
+
+        // Initialize shadow effect once map is ready
+        if (useShadowEffect && shadowEffect == null) {
+            shadowEffect = new(Content.Load<Effect>("RadialEffect"), LocalMap, Content.Load<Texture2D>("shadow"));
+        }
+
+        // Set player position on first frame after generation
+        if (Player.Center == Point.Zero) {
+            Player.SetPosition(new Vector2(LocalMap.WorldWidth / 2, LocalMap.WorldHeight / 2));
+            Camera.MoveHardTo(Player.Center.ToVector2());
+        }
+
         LocalMap.Update(gameTime);
 
         lms = ms;
@@ -208,15 +224,21 @@ public class GameScene() : Scene("game") {
         }
 
         Player.Update(gameTime, LocalMap);
+
         if (useShadowEffect)
             shadowEffect.Update(gameTime);
 
-        loadingScreen.Update(gameTime);
         base.Update(gameTime);
     }
 
     public override void Draw(SpriteBatch spriteBatch) {
         Game1Inst.DrawBackground(Color.CornflowerBlue);
+
+        if (!isMapReady) {
+            loadingScreen.Draw(spriteBatch);
+            base.Draw(spriteBatch);
+            return;
+        }
 
         spriteBatch.Begin(transformMatrix: Game1Inst.CameraTransform, samplerState: SamplerState.PointClamp);
         LocalMap.Draw(spriteBatch);
