@@ -233,8 +233,26 @@ public class Generator {
                 float falloff = Smoothstep(0f, 0.15f, edgeDist);
                 elevation = falloff > 0 ? elevation / falloff : elevation;
 
+                // Calculate distance from edge for smooth border
+                float distFromEdgeX = Math.Min(x, Width - 1 - x);
+                float distFromEdgeY = Math.Min(y, Height - 1 - y);
+                float distFromEdge = Math.Min(distFromEdgeX, distFromEdgeY);
+
+                // Smooth border transition - closer to edge = higher chance of ultraRock
+                float borderThreshold = 20f; // Base distance for border (good for 1000x1000 maps)
+                float borderNoise = (elevationNoise[x, y] + moistureNoise[x, y]) * 3f; // Add noise variation
+                bool isMapBorder = distFromEdge < (borderThreshold + borderNoise);
+
                 int baseTileId = 0;
                 int topTileId = 0;
+
+                // Place ultraRock at map borders with natural edge
+                if (isMapBorder) {
+                    baseTileId = TileRegister.GetIdByName("water");
+                    tiles[x, y, 0] = baseTileId;
+                    tiles[x, y, 1] = TileRegister.GetIdByName("ultraRock");
+                    continue; // Skip normal terrain generation for border tiles
+                }
 
                 // Water
                 if (elevation < 0.3f) {
@@ -268,7 +286,7 @@ public class Generator {
                     }
                 }
                 // Mountains - with underlying land
-                else if (elevation < 0.9f) {
+                else if (elevation < 0.85f) {
                     // Base layer: determine land type based on moisture
                     if (moisture > 0.5f) {
                         int[] priorities = { 5, 5, 3 };
@@ -283,7 +301,7 @@ public class Generator {
                     topTileId = TileRegister.GetIdByName("mountain");
                 }
                 // High mountains - with mountain underneath
-                else {
+                else if (elevation < 0.95f) {
                     // Base layer: determine land type based on moisture
                     if (moisture > 0.5f) {
                         int[] priorities = { 5, 5, 3 };
@@ -300,6 +318,26 @@ public class Generator {
                     topTileId = TileRegister.GetIdByName("highMountain");
                     tiles[x, y, 2] = topTileId;
                 }
+                // Ultra high mountains - with mountain and high mountain underneath
+                else {
+                    // Base layer: determine land type based on moisture
+                    if (moisture > 0.5f) {
+                        int[] priorities = { 5, 5, 3 };
+                        int variant = GetWeightedRandomVariant(rng, priorities);
+                        baseTileId = TileRegister.GetIdByName("forestVar1") + variant;
+                    } else {
+                        int[] priorities = { 7, 7, 7, 1 };
+                        int variant = GetWeightedRandomVariant(rng, priorities);
+                        baseTileId = TileRegister.GetIdByName("grassVar1") + variant;
+                    }
+                    // Layer 1: mountain
+                    tiles[x, y, 1] = TileRegister.GetIdByName("mountain");
+                    // Layer 2: high mountain
+                    tiles[x, y, 2] = TileRegister.GetIdByName("highMountain");
+                    // Layer 3: just high mountain (no special ultra tile)
+                    topTileId = TileRegister.GetIdByName("highMountain");
+                    tiles[x, y, 3] = topTileId;
+                }
 
                 tiles[x, y, 0] = baseTileId;
                 if (topTileId != 0 && elevation < 0.9f) {
@@ -309,6 +347,7 @@ public class Generator {
         }
         return tiles;
     }
+
 
     private static void InitializePermutation(Random rng) {
         permutation = new int[512];

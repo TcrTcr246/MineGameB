@@ -12,8 +12,8 @@ using System.Reflection.Metadata;
 namespace MineGameB.World;
 public class Map {
     public int TileSize { get; private set; } = 32;
-    public int Width { get; private set; } = 1000;
-    public int Height { get; private set; } = 1000;
+    public int Width { get; private set; } = 512;
+    public int Height { get; private set; } = 512;
     public int Depth { get; private set; } = 4;
     public int WorldWidth { get; private set; } = 0;
     public int WorldHeight { get; private set; } = 0;
@@ -345,13 +345,14 @@ public class Map {
     // break
     protected Dictionary<Point, TileBreakData> Breaks;
     private float regenDelay = 1f; // Seconds before regeneration starts
-    private float regenSpeed = 8f; // Break points regenerated per second
+    private float regenSpeed = 60f; // Break points regenerated per second
 
     public class TileBreakData {
-        public int BreakCount;
+        public float BreakAmount; // Changed from int to float for smooth regeneration
         public float LastHitTime;
-        public TileBreakData(int breakCount, float lastHitTime) {
-            BreakCount = breakCount;
+
+        public TileBreakData(float breakAmount, float lastHitTime) {
+            BreakAmount = breakAmount;
             LastHitTime = lastHitTime;
         }
     }
@@ -359,17 +360,22 @@ public class Map {
     public void BreakTileAtIndex(Point p, GameTime gameTime) {
         int topTileId = GetTileAtIndex(p);
         Tile tile = GameScene.TileRegister.GetTileById(topTileId);
+
         if (tile?.IsBreakable != true)
             return;
+
         int maxBreaks = (int)(tile.Durity * 10);
         float currentTime = (float)gameTime.TotalGameTime.TotalSeconds;
+
         if (!Breaks.TryGetValue(p, out TileBreakData breakData)) {
             breakData = new TileBreakData(0, currentTime);
             Breaks[p] = breakData;
         }
-        breakData.BreakCount++;
+
+        breakData.BreakAmount += (float)gameTime.ElapsedGameTime.TotalSeconds * 1000;
         breakData.LastHitTime = currentTime;
-        if (breakData.BreakCount >= maxBreaks) {
+
+        if (breakData.BreakAmount >= maxBreaks) {
             RemoveTileAtIndex(p);
             Breaks.Remove(p);
         }
@@ -377,22 +383,27 @@ public class Map {
 
     public void UpdateBreak(GameTime gameTime) {
         float currentTime = (float)gameTime.TotalGameTime.TotalSeconds;
-        List<Point> toRemove = [];
+        float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+        List<Point> toRemove = new List<Point>();
+
         foreach (var kvp in Breaks) {
             Point pos = kvp.Key;
             TileBreakData breakData = kvp.Value;
+
             float timeSinceHit = currentTime - breakData.LastHitTime;
+
             if (timeSinceHit >= regenDelay) {
-                // Regenerate
-                float regenAmount = (timeSinceHit - regenDelay) * regenSpeed;
-                int newBreakCount = Math.Max(0, breakData.BreakCount - (int)regenAmount);
-                if (newBreakCount <= 0) {
+                // Regenerate using delta time
+                float regenAmount = regenSpeed * deltaTime;
+                breakData.BreakAmount = Math.Max(0, breakData.BreakAmount - regenAmount);
+
+                if (breakData.BreakAmount <= 0) {
                     toRemove.Add(pos);
-                } else {
-                    breakData.BreakCount = newBreakCount;
                 }
             }
         }
+
         foreach (Point pos in toRemove) {
             Breaks.Remove(pos);
         }
@@ -404,27 +415,35 @@ public class Map {
         foreach (var kvp in Breaks) {
             Point tilePos = kvp.Key;
             TileBreakData breakData = kvp.Value;
+
             int topTileId = GetTileAtIndex(tilePos);
             Tile tile = GameScene.TileRegister.GetTileById(topTileId);
+
             if (tile == null)
                 continue;
+
             int maxBreaks = (int)(tile.Durity * 10);
-            float breakProgress = (float)breakData.BreakCount / maxBreaks;
-            // Calculate which frame to show - adjusted to distribute evenly
-            int frameIndex = Math.Min((int)(breakProgress * (breakOverlayFrames + 0.99f)), breakOverlayFrames - 1);
+            float breakProgress = breakData.BreakAmount / maxBreaks;
+
+            // Calculate which frame to show
+            int frameIndex = Math.Min((int)(breakProgress * breakOverlayFrames), breakOverlayFrames - 1);
+
             // Calculate source rectangle (assuming frames are horizontal)
             Rectangle sourceRect = new Rectangle(
-                frameIndex * TileSize, // X position in texture
-                0,                      // Y position in texture
-                TileSize,              // Width
-                TileSize               // Height
+                frameIndex * TileSize,
+                0,
+                TileSize,
+                TileSize
             );
+
             // Convert tile position to screen position
             Vector2 screenPos = new Vector2(tilePos.X * TileSize, tilePos.Y * TileSize);
+
             // Draw the appropriate frame
             spriteBatch.Draw(breakOverlay, screenPos, sourceRect, Color.White);
         }
     }
+
     // break end
 
 

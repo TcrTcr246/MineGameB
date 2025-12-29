@@ -129,8 +129,10 @@ public class GameScene() : Scene("game") {
         newTile(SurfaceTileset, "sandVar3", 2, 2).SetMapColor(Color.LightGoldenrodYellow);
         newTile(SurfaceTileset, "sandVar4", 3, 2).SetMapColor(Color.LightGoldenrodYellow);
         newTile(SurfaceTileset, "water", 0, 3).SetMapColor(Color.LightBlue).SetSolid();
-        newTile(SurfaceTileset, "mountain", 0, 4).SetMapColor(Color.LightGray).SetSolid().SetDurity(150f).SetLightPassable(false);
-        newTile(SurfaceTileset, "highMountain", 1, 4).SetMapColor(Color.DarkGray).SetSolid().SetDurity(450f).SetLightPassable(false);
+        newTile(SurfaceTileset, "mountain", 0, 5).SetMapColor(Color.LightGray).SetSolid().SetDurity(150f).SetLightPassable(false);
+        newTile(SurfaceTileset, "highMountain", 1, 5).SetMapColor(Color.DarkGray).SetSolid().SetDurity(450f).SetLightPassable(false);
+        newTile(SurfaceTileset, "ultraHighMountain", 2, 5).SetMapColor(Color.DarkSlateGray).SetSolid().SetDurity(1500f).SetLightPassable(false);
+        newTile(SurfaceTileset, "ultraRock", 3, 4).SetMapColor(Color.Black).SetSolid().SetLightPassable(false);
 
 
         CaveMap = new Map();
@@ -159,14 +161,16 @@ public class GameScene() : Scene("game") {
         lms = ms;
         ms = Mouse.GetState();
 
-        Camera.ScaleIndependent(gameTime);
-        Camera.MoveTo(gameTime, Player.Center.ToVector2());
-
-        /*
         var LS = Keyboard.GetState().IsKeyDown(Keys.LeftShift);
         var LC = Keyboard.GetState().IsKeyDown(Keys.LeftControl);
-        Camera.MoveIndependent(gameTime, (!LS ? 500 : 5000) + (!LC ? 0 : 10000));
-        */
+
+        if (LS) {
+            Camera.ScaleIndependent(gameTime, 100f, 7f, 0.008f);
+            Camera.MoveIndependent(gameTime, 3000 + (!LC ? 0 : 15000));
+        } else {
+            Camera.ScaleIndependent(gameTime, 100f, 7f, 0.45f);
+            Camera.MoveTo(gameTime, Player.Center.ToVector2());
+        }
 
         if (LocalMap.InWorldZoom) {
             Point loc = LocalMap.GetIndexAtPos(Camera2D.MouseWorld);
