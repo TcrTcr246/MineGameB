@@ -9,12 +9,16 @@ using MineGameB.World.Objects;
 using MineGameB.World.Tiles;
 using System;
 using System.Linq;
+using System.Reflection.Emit;
+using System.Threading.Tasks;
 
 namespace MineGameB.Scenes;
 public class GameScene() : Scene("game") {
     public static Map CaveMap { get; set; }
     public static Map SurfaceMap { get; set; }
     public static Map LocalMap { get; set; }
+    public static LoadingScreen loadingScreen { get; set; }
+
     public static TileRegister TileRegister { get; set; }
 
     static Effects.ShadowEffect shadowEffect;
@@ -121,25 +125,43 @@ public class GameScene() : Scene("game") {
         newTile(SurfaceTileset, "grassVar2", 1, 0).SetMapColor(Color.LightGreen);
         newTile(SurfaceTileset, "grassVar3", 2, 0).SetMapColor(Color.LightGreen);
         newTile(SurfaceTileset, "grassVar4", 3, 0).SetMapColor(Color.LightGreen);
+
         newTile(SurfaceTileset, "forestVar1", 0, 1).SetMapColor(Color.Green);
         newTile(SurfaceTileset, "forestVar2", 1, 1).SetMapColor(Color.Green);
         newTile(SurfaceTileset, "forestVar3", 2, 1).SetMapColor(Color.Green);
+
+        newTile(SurfaceTileset, "water", 0, 3).SetMapColor(Color.LightBlue).SetSolid();
         newTile(SurfaceTileset, "sandVar1", 0, 2).SetMapColor(Color.LightGoldenrodYellow);
         newTile(SurfaceTileset, "sandVar2", 1, 2).SetMapColor(Color.LightGoldenrodYellow);
-        newTile(SurfaceTileset, "sandVar3", 2, 2).SetMapColor(Color.LightGoldenrodYellow);
-        newTile(SurfaceTileset, "sandVar4", 3, 2).SetMapColor(Color.LightGoldenrodYellow);
-        newTile(SurfaceTileset, "water", 0, 3).SetMapColor(Color.LightBlue).SetSolid();
+        Func<int, int, int> randSand = (myId, overId) => TileRegister.GetIdByName("sandVar1") + new Random().Next(0, 1);
+        newTile(SurfaceTileset, "sandVar3", 2, 2).SetMapColor(Color.LightGoldenrodYellow).SetTransformIntoAfterCover(randSand);
+        newTile(SurfaceTileset, "sandVar4", 3, 2).SetMapColor(Color.LightGoldenrodYellow).SetTransformIntoAfterCover(randSand);
+
         newTile(SurfaceTileset, "mountain", 0, 5).SetMapColor(Color.LightGray).SetSolid().SetDurity(150f).SetLightPassable(false);
         newTile(SurfaceTileset, "highMountain", 1, 5).SetMapColor(Color.DarkGray).SetSolid().SetDurity(450f).SetLightPassable(false);
         newTile(SurfaceTileset, "ultraHighMountain", 2, 5).SetMapColor(Color.DarkSlateGray).SetSolid().SetDurity(1500f).SetLightPassable(false);
         newTile(SurfaceTileset, "ultraRock", 3, 4).SetMapColor(Color.Black).SetSolid().SetLightPassable(false);
 
 
-        CaveMap = new Map();
-        CaveMap.NewGenerate(CaveMap.Generator.GenerateWallAnd2FloorVariant("wall", "floor1", "floor2").Tiles);
+        // CaveMap = new Map();
+        // CaveMap.NewGenerate(CaveMap.Generator.GenerateWallAnd2FloorVariant("wall", "floor1", "floor2").Tiles);
+
+        SpriteFont font = Content.Load<SpriteFont>("Font");
+        loadingScreen = new LoadingScreen(font);
 
         SurfaceMap = new Map();
-        SurfaceMap.NewGenerate(SurfaceMap.Generator.GenerateTopograficMap());
+        SurfaceMap.Generator.OnProgressUpdate += (progress, message) => {
+            loadingScreen.Progress = progress;
+            loadingScreen.Message = message;
+        };
+
+        loadingScreen.IsVisible = true;
+
+        Task.Run(async () => {
+            var tiles = await SurfaceMap.Generator.GenerateTopograficMapAsync();
+            SurfaceMap.NewGenerate(tiles);
+            loadingScreen.IsVisible = false;
+        });
 
         LocalMap = SurfaceMap;
 
@@ -154,7 +176,6 @@ public class GameScene() : Scene("game") {
         base.Load();
     }
 
-    int frameCount = 0;
     public override void Update(GameTime gameTime) {
         LocalMap.Update(gameTime);
 
@@ -173,7 +194,7 @@ public class GameScene() : Scene("game") {
         }
 
         if (LocalMap.InWorldZoom) {
-            Point loc = LocalMap.GetIndexAtPos(Camera2D.MouseWorld);
+            Point loc = LocalMap.GetIndexAtPos(Game1.Instance.Camera.MouseWorld);
             Tile tile = LocalMap.GetTileObjectAtIndex(loc);
 
             if (ms.LeftButton == ButtonState.Pressed) {
@@ -190,7 +211,7 @@ public class GameScene() : Scene("game") {
         if (useShadowEffect)
             shadowEffect.Update(gameTime);
 
-        frameCount++;
+        loadingScreen.Update(gameTime);
         base.Update(gameTime);
     }
 
@@ -205,6 +226,7 @@ public class GameScene() : Scene("game") {
         if (useShadowEffect)
             shadowEffect.Draw(spriteBatch);
 
+        loadingScreen.Draw(spriteBatch);
         base.Draw(spriteBatch);
     }
 }

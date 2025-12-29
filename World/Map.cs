@@ -6,14 +6,15 @@ using MineGameB.World.Objects;
 using MineGameB.World.Tiles;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection.Metadata;
 
 namespace MineGameB.World;
 public class Map {
     public int TileSize { get; private set; } = 32;
-    public int Width { get; private set; } = 500;
-    public int Height { get; private set; } = 500;
+    public int Width { get; private set; } = 2000;
+    public int Height { get; private set; } = 2000;
     public int Depth { get; private set; } = 4;
     public int WorldWidth { get; private set; } = 0;
     public int WorldHeight { get; private set; } = 0;
@@ -283,9 +284,7 @@ public class Map {
     public void SetTileAtIndex(Point p, int id, int? layer = null) {
         if (!IsValidIndex(p))
             return;
-
         int targetLayer;
-
         if (layer.HasValue) {
             if (layer.Value < 0 || layer.Value >= Depth)
                 return;
@@ -298,12 +297,21 @@ public class Map {
                     break;
                 }
             }
-
             if (targetLayer == -1)
                 targetLayer = Depth - 1;
         }
 
         Tiles[p.X, p.Y, targetLayer] = id;
+
+        // Apply OnCover to the tile that was just placed if there's a tile above it
+        if (targetLayer > 0) {
+            int tileAboveId = Tiles[p.X, p.Y, targetLayer - 1];
+            if (tileAboveId != 0) {
+                var tileAbove = GameScene.TileRegister.GetTileById(tileAboveId);
+                int transformedId = tileAbove.OnCover(tileAbove);
+                Tiles[p.X, p.Y, targetLayer - 1] = transformedId;
+            }
+        }
 
         int topTile = GetTileAtIndex(p);
         ModifyTex(p, GameScene.TileRegister.GetTileById(topTile).MapColor);
@@ -499,7 +507,7 @@ public class Map {
         if (!InWorldZoom) {
             spriteBatch.Draw(drawedTexture, new Rectangle(0, 0, WorldWidth, WorldHeight), Color.White);
         } else {
-            Rectangle r = GetVisibleTileRect(Game1.Instance.Camera.GetViewBounds(Game1.Instance.GraphicsDevice));
+            Rectangle r = GetVisibleTileRect(Game1.Instance.Camera.GetViewBounds());
 
             for (int x = r.X; x < r.X + r.Width; x++) {
                 for (int y = r.Y; y < r.Y + r.Height; y++) {
@@ -533,7 +541,7 @@ public class Map {
     }
 
     static void DrawIfVisible(WorldObject o, Action draw) {
-        if (Game1.Instance.Camera.GetViewBounds(Game1.Instance.GraphicsDevice).Intersects(o.GetBounds()))
+        if (Game1.Instance.Camera.GetViewBounds().Intersects(o.GetBounds()))
             draw();
     }
 

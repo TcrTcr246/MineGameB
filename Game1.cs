@@ -12,10 +12,11 @@ public class Game1 : GameTemplate.Game {
     protected override void Initialize() {
         Camera.TranslateBackToWorldPos = false;
 
-        // vsinc off
+        /*/
         IsFixedTimeStep = false;
         _graphics.SynchronizeWithVerticalRetrace = false;
         _graphics.ApplyChanges();
+        //*/
 
         base.Initialize();
     }

@@ -2,3 +2,6 @@
 
 # IDE0290: Use primary constructor
 dotnet_diagnostic.IDE0290.severity = silent
+
+# IDE0022: Use expression body for method
+dotnet_diagnostic.IDE0022.severity = silent

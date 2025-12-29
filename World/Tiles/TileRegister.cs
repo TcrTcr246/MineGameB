@@ -10,7 +10,7 @@ public class TileRegister {
     int next = 0;
     public Tile Register(Tile t, int? id=null) {
         int finalId = id ?? next++;
-        archive.Add(finalId, t);
+        archive.Add(finalId, t.SetId(finalId));
         return GetTileById(finalId);
     }
 

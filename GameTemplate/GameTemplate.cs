@@ -1,6 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using System;
 
 namespace GameTemplate;
 public class Game : Microsoft.Xna.Framework.Game {
@@ -19,6 +18,7 @@ public class Game : Microsoft.Xna.Framework.Game {
 
     protected override void Initialize() {
         Letterbox.Initialize(GraphicsDevice, Window);
+        Letterbox.UpdateScaleMatrix(_graphics.PreferredBackBufferWidth, _graphics.PreferredBackBufferHeight);
         base.Initialize();
     }
 
@@ -33,7 +33,7 @@ public class Game : Microsoft.Xna.Framework.Game {
     protected override void Update(GameTime gameTime) {
         Camera.Update(gameTime);
         Letterbox.UpdateScaleMatrix(_graphics.PreferredBackBufferWidth, _graphics.PreferredBackBufferHeight);
-        CameraTransform = Camera.GetTransform(GraphicsDevice);
+        CameraTransform = Camera.GetTransform();
         LetterboxUITransform = Camera2D.GetTransformUnpositioned(GraphicsDevice);
 
         base.Update(gameTime);

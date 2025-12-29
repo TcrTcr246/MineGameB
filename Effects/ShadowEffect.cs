@@ -24,7 +24,7 @@ public class ShadowEffect : Effect {
             return;
 
         var cam = Game1.Instance.Camera;
-        Rectangle camRect = cam.GetViewBounds(Game1.Instance.GraphicsDevice);
+        Rectangle camRect = cam.GetViewBounds();
         Rectangle r = map.GetVisibleTileRect(camRect);
 
         // Only update if view changed significantly or every N frames

@@ -1,7 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using MineGameB;
 using System;
 
 namespace GameTemplate;
@@ -16,7 +15,7 @@ public class Camera2D {
     public Rectangle DeadZone = new(40, 40, 40, 40);
 
     public bool TranslateBackToWorldPos = false;
-    public static Rectangle Screen => new(0, 0, Letterbox.VirtualWidth, Letterbox.VirtualHeight);
+    public Viewport Screen => new(0, 0, Letterbox.VirtualWidth, Letterbox.VirtualHeight);
 
     Vector2 shake;
     float shakeTimer = 0f;
@@ -24,7 +23,7 @@ public class Camera2D {
 
     static readonly Random rng = new();
 
-    public static Vector2 MouseWorld {
+    public Vector2 MouseWorld {
         get {
             MouseState ms = Mouse.GetState();
             return WorldToScreenPoint(new(ms.X, ms.Y));
@@ -38,8 +37,10 @@ public class Camera2D {
         DeadZone.Height
     );
 
+    public Camera2D() { }
+
     MouseState ms, lastMs;
-    public Camera2D() {
+    public void Load() {
         lastMs = Mouse.GetState();
         ms = Mouse.GetState();
     }
@@ -117,21 +118,25 @@ public class Camera2D {
     float TargetZoom = uniqueFloatCode;
     float scrollLerpSpeed = 3f;
 
-    public void ScaleIndependent(GameTime gameTime, float scrollSpeed=100f, float lerpSpeed=7f, float minimum=0.001f, float maximum=2.5f) {
-        if (TargetZoom == uniqueFloatCode) // 0.001f 0.45f
+    public void ScaleIndependent(GameTime gameTime, float scrollSpeed = 100f, float lerpSpeed = 7f, float minimum = 0.005f, float maximum = 2.5f) {
+        if (TargetZoom == uniqueFloatCode)
             TargetZoom = Zoom;
 
         int sc = ms.ScrollWheelValue - lastMs.ScrollWheelValue;
         if (sc != 0) {
             float distanceFactor = TargetZoom;
-
             TargetZoom += sc * (scrollSpeed / 100000f) * distanceFactor;
             TargetZoom = MathHelper.Clamp(TargetZoom, minimum, maximum);
             scrollLerpSpeed = lerpSpeed;
         }
+
+        // Apply time-based lerping
+        float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+        Zoom = MathHelper.Lerp(Zoom, TargetZoom, scrollLerpSpeed * deltaTime);
     }
 
-    public Matrix GetTransform(GraphicsDevice __) {
+
+    public Matrix GetTransform() {
         var letterboxSize = new Vector3(
             Letterbox.ViewportWidth,
             Letterbox.ViewportHeight,
@@ -147,9 +152,9 @@ public class Camera2D {
         // (TranslateBackToWorldPos ? - letterboxSize/2 : Vector3.Zero)
     }
 
-    public static Vector2 WorldToScreenPoint(Vector2 p) {
+    public Vector2 WorldToScreenPoint(Vector2 p) {
         Vector2 pct = new Vector2(p.X, p.Y) - new Vector2(Letterbox.OffsetX, Letterbox.OffsetY);
-        Matrix view = Game1.Instance.Camera.GetTransform(Game1.Instance.GraphicsDevice);
+        Matrix view = GetTransform();
         Matrix.Invert(ref view, out Matrix inverseView);
         return Vector2.Transform(pct, inverseView);
     }
@@ -161,8 +166,8 @@ public class Camera2D {
         // (TranslateBackToWorldPos ? - letterboxSize/2 : Vector3.Zero)
     }
 
-    public Rectangle GetViewBounds(GraphicsDevice gd) {
-        Matrix transform = GetTransform(gd);
+    public Rectangle GetViewBounds() {
+        Matrix transform = GetTransform();
 
         // invert matrix: screen -> world
         Matrix.Invert(ref transform, out Matrix inverse);

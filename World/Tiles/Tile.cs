@@ -1,9 +1,16 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System;
 
 namespace MineGameB.World.Tiles;
 
 public class Tile(Texture2D texture, Rectangle sourceRectangle, string name) {
+    private int Id { get; set; }
+    public Tile SetId(int id) {
+        Id = id;
+        return this;
+    }
+
     public Texture2D Texture { get; protected set; } = texture;
     public Rectangle SourceRectangle { get; protected set; } = sourceRectangle;
     public int MapLayer = 0;
@@ -41,6 +48,13 @@ public class Tile(Texture2D texture, Rectangle sourceRectangle, string name) {
         IsLightPassable = v;
         return this;
     }
+
+    public Func<int, int, int> transformIntoAfterCover = (myId, overId) => myId;
+    public Tile SetTransformIntoAfterCover(Func<int, int, int> func) {
+        transformIntoAfterCover = func;
+        return this;
+    }
+    public int OnCover(Tile tile) => transformIntoAfterCover(Id, tile.Id);
 
     public bool IsBreakable { get; protected set; } = false;
     public float Durity { get; protected set; } = float.NaN;
