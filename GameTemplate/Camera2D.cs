@@ -29,6 +29,15 @@ public class Camera2D {
             return WorldToScreenPoint(new(ms.X, ms.Y));
         }
     }
+    public Vector2 MouseScreen {
+        get {
+            MouseState ms = Mouse.GetState();
+            // Adjust for letterbox offset and scale
+            float scaledX = (ms.X - Letterbox.OffsetX) / Letterbox.Scale;
+            float scaledY = (ms.Y - Letterbox.OffsetY) / Letterbox.Scale;
+            return new Vector2(scaledX, scaledY);
+        }
+    }
 
     Rectangle CamRect => new(
         (int)(Position.X - DeadZone.Width / 2),

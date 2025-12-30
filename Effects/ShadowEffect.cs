@@ -10,8 +10,8 @@ public class ShadowEffect : Effect {
     private Rectangle mapLightningRect;
     private Rectangle lastVisibleRect;
     private int updateCounter = 0;
-    private const int UPDATE_INTERVAL = 2; // Update every 2 frames
-    private const int LIGHT_SCALE = 2; // Build light map at 1/2 resolution
+    private const int UPDATE_INTERVAL = 5; // Update every 2 frames
+    private const int LIGHT_SCALE = 1; // Build light map at 1/2 resolution
 
     public ShadowEffect(Microsoft.Xna.Framework.Graphics.Effect effect, Map map, Texture2D shadowTex) : base(effect) {
         this.map = map;
@@ -46,7 +46,7 @@ public class ShadowEffect : Effect {
         effect.Parameters["TileSize"]
             .SetValue(LIGHT_SCALE / (map.TileSize / cam.Zoom));
         effect.Parameters["Softness"]
-            .SetValue(2f);
+            .SetValue(1f);
     }
 
     public override void Draw(SpriteBatch spriteBatch) {
@@ -62,7 +62,7 @@ public class ShadowEffect : Effect {
             SamplerState.LinearClamp, // Smooth upscaling
             null,
             null,
-            this.effect,
+            effect,
             Game1.Instance.CameraTransform
         );
 

@@ -4,13 +4,12 @@ using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using MineGameB.Entities;
+using MineGameB.Items;
 using MineGameB.World;
 using MineGameB.World.Objects;
 using MineGameB.World.Tiles;
 using System;
 using System.Diagnostics;
-using System.Linq;
-using System.Reflection.Emit;
 using System.Threading.Tasks;
 
 namespace MineGameB.Scenes;
@@ -19,11 +18,12 @@ public class GameScene() : Scene("game") {
     public static Map SurfaceMap { get; set; }
     public static Map LocalMap { get; set; }
     public static LoadingScreen LoadingScreen { get; set; }
+    public static Inventory Inventory { get; set; }
 
     public static TileRegister TileRegister { get; set; }
 
     static Effects.ShadowEffect shadowEffect;
-    bool useShadowEffect = false;
+    bool useShadowEffect = true;
     private bool isMapReady = false;
 
     static ContentManager Content => Game1.Instance.Content;
@@ -145,19 +145,35 @@ public class GameScene() : Scene("game") {
         newTile(SurfaceTileset, "sandVar3", 2, 2).SetMapColor(yellow).SetTransformIntoAfterCover(randSand);
         newTile(SurfaceTileset, "sandVar4", 3, 2).SetMapColor(yellow).SetTransformIntoAfterCover(randSand);
 
-        newTile(SurfaceTileset, "mountain", 0, 5).SetMapColor(Color.LightGray).SetSolid().SetDurity(150f).SetLightPassable(false);
-        newTile(SurfaceTileset, "highMountain", 1, 5).SetMapColor(Color.DarkGray).SetSolid().SetDurity(700f).SetLightPassable(false);
-        newTile(SurfaceTileset, "ultraHighMountain", 2, 5).SetMapColor(Color.DarkSlateGray).SetSolid().SetDurity(3000f).SetLightPassable(false);
+        newTile(SurfaceTileset, "mountain", 0, 5).SetMapColor(Color./*LightGray*/DarkSlateGray).SetSolid().SetDurity(150f).SetLightPassable(false);
+        newTile(SurfaceTileset, "highMountain", 1, 5).SetMapColor(Color./*DarkGray*/DarkSlateGray).SetSolid().SetDurity(700f).SetLightPassable(false);
+        newTile(SurfaceTileset, "ultraHighMountain", 2, 5).SetMapColor(Color./*DarkSlateGray*/DarkSlateGray).SetSolid().SetDurity(3000f).SetLightPassable(false);
         newTile(SurfaceTileset, "ultraRock", 3, 4).SetMapColor(Color.Black).SetSolid().SetLightPassable(false);
 
 
         CaveMap = new Map();
-        
+        SurfaceMap = new Map();
 
-        SpriteFont font = Content.Load<SpriteFont>("Font");
+        var font = Content.Load<SpriteFont>("Font");
+        var inventoryTexture = Content.Load<Texture2D>("inventory");
+
+        Inventory = new(Game1Inst.GraphicsDevice, font, inventoryTexture);
+
+        var tile2 = TileRegister.GetTileByName("debug");
+        for (int i = 0; 15 > i; i++)
+            Inventory.AddItem(tile2.Texture, tile2.SourceRectangle, "d"+i, 1);
+
+        foreach (var t in new string[] { "mountain", "highMountain", "ultraHighMountain", "ultraRock", "wall" }) {
+            var tile = TileRegister.GetTileByName(t);
+            Inventory.AddItem(tile.Texture, tile.SourceRectangle, tile.Name, 99);
+        }
+
+        for (int i = 0; 15 > i; i++)
+            Inventory.GetSlot(i).Count = 0;
+
+
         LoadingScreen = new LoadingScreen(font);
 
-        SurfaceMap = new Map();
         Generator.OnProgressUpdate += (progress, message) => {
             LoadingScreen.Progress = progress;
             LoadingScreen.Message = message;
@@ -263,12 +279,18 @@ public class GameScene() : Scene("game") {
             }
 
             if (ms.RightButton == ButtonState.Pressed) {
-                if (!LocalMap.GetTileObjectAtIndex(loc).IsSolid)
-                    LocalMap.SetTileAtIndex(loc, TileRegister.GetIdByName("wall"));
+                if (!LocalMap.GetTileObjectAtIndex(loc).IsSolid) {
+                    var slot = Inventory.GetSelectedHotbarSlot();
+                    if (!slot.IsEmpty) {
+                        LocalMap.SetTileAtIndex(loc, TileRegister.GetIdByName(slot.ItemName));
+                        slot.Count -= 1;
+                    }
+                }
             }
         }
 
         Player.Update(gameTime, LocalMap);
+        Inventory.Update(gameTime);
 
         if (useShadowEffect)
             shadowEffect.Update(gameTime);
@@ -292,6 +314,10 @@ public class GameScene() : Scene("game") {
 
         if (useShadowEffect)
             shadowEffect.Draw(spriteBatch);
+
+        spriteBatch.Begin(transformMatrix: Game1Inst.LetterboxUITransform, samplerState: SamplerState.PointClamp);
+        Inventory.Draw(spriteBatch);
+        spriteBatch.End();
 
         LoadingScreen.Draw(spriteBatch);
         base.Draw(spriteBatch);

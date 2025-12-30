@@ -8,7 +8,7 @@ public class Player {
     public Vector2 Position;
     public float Speed = 160f;
 
-    public const int Size = 32;
+    public const int Size = 30;
 
     public Rectangle Bounds => new(
         (int)Position.X,

@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using MineGameB.Scenes;
 using System;
 
 namespace MineGameB.World.Tiles;
@@ -55,6 +56,18 @@ public class Tile(Texture2D texture, Rectangle sourceRectangle, string name) {
         return this;
     }
     public int OnCover(Tile tile) => transformIntoAfterCover(Id, tile.Id);
+
+
+    public Func<int, int> dropFunc = myId => myId;
+    public Tile SetOnBreak(Func<int, int> func) {
+        dropFunc = func;
+        return this;
+    }
+    public void OnBreak() {
+        var id = dropFunc(Id);
+        var tile = GameScene.TileRegister.GetTileById(id);
+        GameScene.Inventory.AddItem(tile.Texture, tile.SourceRectangle, tile.Name, 1);
+    }
 
     public bool IsBreakable { get; protected set; } = false;
     public float Durity { get; protected set; } = float.NaN;

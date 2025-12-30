@@ -6,9 +6,7 @@ using MineGameB.World.Objects;
 using MineGameB.World.Tiles;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Reflection.Metadata;
 
 namespace MineGameB.World;
 public class Map {
@@ -131,7 +129,7 @@ public class Map {
         return this;
     }
 
-    const int darkSeeRange = 2;
+    const int darkSeeRange = 1;
 
     public Texture2D LightTexture;
     // Optimized BuildVisibleLightTexture for your Map class
@@ -209,6 +207,9 @@ public class Map {
         drawedTexture.GetData(0, new Rectangle(tx, ty, 1, 1), data, 0, 1);
         data[0] = color;
         drawedTexture.SetData(0, new Rectangle(tx, ty, 1, 1), data, 0, 1);
+    }
+
+    public void ClearModifiedTex() {
         modifiedTexPoints.Clear();
         modifiedTexColors.Clear();
     }
@@ -384,6 +385,7 @@ public class Map {
         breakData.LastHitTime = currentTime;
 
         if (breakData.BreakAmount >= maxBreaks) {
+            tile.OnBreak();
             RemoveTileAtIndex(p);
             Breaks.Remove(p);
         }
@@ -494,6 +496,7 @@ public class Map {
         if (firstFrame || JustOutsideWorldZoom) {
             for (int i = 0; i < modifiedTexPoints.Count; i++)
                 ApplyModifTex(modifiedTexPoints[i], modifiedTexColors[i]);
+            ClearModifiedTex();
         }
         firstFrame = false;
 
