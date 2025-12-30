@@ -116,8 +116,8 @@ public class GameScene() : Scene("game") {
         }
 
         Random TileCoveredRandomizer = new();
-        Func<int, int, int> randSand = (myId, overId) => TileRegister.GetIdByName("sandVar1") + TileCoveredRandomizer.Next(0, 1);
-        Func<int, int, int> randGrass = (myId, overId) => TileRegister.GetIdByName("grassVar6");
+        int randSand(int myId, int overId) => TileRegister.GetIdByName("sandVar1") + TileCoveredRandomizer.Next(0, 1);
+        int randGrass(int myId, int overId) => TileRegister.GetIdByName("grassVar6");
 
         register(new(CaveTileset, new(0, 64, 32, 32), "debug")).SetMapColor(Color.Magenta);
         register(new(CaveTileset, new(32, 64, 32, 32), "blank_white")).SetMapColor(Color.White).SetDrawColor(Color.White);
@@ -146,31 +146,62 @@ public class GameScene() : Scene("game") {
         newTile(SurfaceTileset, "sandVar4", 3, 2).SetMapColor(yellow).SetTransformIntoAfterCover(randSand);
 
         newTile(SurfaceTileset, "mountain", 0, 5).SetMapColor(Color.LightGray).SetSolid().SetDurity(150f).SetLightPassable(false);
-        newTile(SurfaceTileset, "highMountain", 1, 5).SetMapColor(Color.DarkGray).SetSolid().SetDurity(450f).SetLightPassable(false);
-        newTile(SurfaceTileset, "ultraHighMountain", 2, 5).SetMapColor(Color.DarkSlateGray).SetSolid().SetDurity(1500f).SetLightPassable(false);
+        newTile(SurfaceTileset, "highMountain", 1, 5).SetMapColor(Color.DarkGray).SetSolid().SetDurity(700f).SetLightPassable(false);
+        newTile(SurfaceTileset, "ultraHighMountain", 2, 5).SetMapColor(Color.DarkSlateGray).SetSolid().SetDurity(3000f).SetLightPassable(false);
         newTile(SurfaceTileset, "ultraRock", 3, 4).SetMapColor(Color.Black).SetSolid().SetLightPassable(false);
 
 
-        // CaveMap = new Map();
-        // CaveMap.NewGenerate(CaveMap.Generator.GenerateWallAnd2FloorVariant("wall", "floor1", "floor2").Tiles);
+        CaveMap = new Map();
+        
 
         SpriteFont font = Content.Load<SpriteFont>("Font");
         LoadingScreen = new LoadingScreen(font);
 
         SurfaceMap = new Map();
-        SurfaceMap.Generator.OnProgressUpdate += (progress, message) => {
+        Generator.OnProgressUpdate += (progress, message) => {
             LoadingScreen.Progress = progress;
             LoadingScreen.Message = message;
+        };
+
+        Generator.OnProgressPhaseUpdate += (progress, message) => {
+            LoadingScreen.PhaseProgress = progress;
+            LoadingScreen.PhaseMessage = message;
         };
 
         LoadingScreen.IsVisible = true;
 
         Task.Run(async () => {
-            var tiles = await SurfaceMap.Generator.GenerateTopograficMapAsync();
-            SurfaceMap.NewGenerate(tiles);
+            var OnProgressUpdate = Generator.ReportProgress;
+            var OnProgressPhaseUpdate = Generator.ReportPhaseProgress;
+
+            OnProgressPhaseUpdate?.Invoke(0.0f, "Surface map generation... (1/3)");
+            OnProgressUpdate?.Invoke(0.0f, "Initializing...");
+            var surfaceTiles = await SurfaceMap.Generator.GenerateTopograficMapAsync();
+
+            OnProgressPhaseUpdate?.Invoke(0.5f, "Cave map generation... (2/3)");
+            OnProgressUpdate?.Invoke(0.0f, "Initializing...");
+            var caveTiles = await CaveMap.Generator.GenerateWallAnd2FloorVariant("wall", "floor1", "floor2");
+
+            OnProgressPhaseUpdate?.Invoke(1f, "Finising...  (3/3)");
+
+            OnProgressUpdate?.Invoke(0.0f, "Processing terrain data...");
+            SurfaceMap.NewGenerate(surfaceTiles);
+            CaveMap.NewGenerate(caveTiles);
+
+            // Phase 3: Generate map texture (85-98%)
+            OnProgressUpdate?.Invoke(0.75f, "Generating surface map texture...");
+            SurfaceMap.GenTex();
+            OnProgressUpdate?.Invoke(0.9f, "Generating cave map texture...");
+            CaveMap.GenTex();
+
+            OnProgressUpdate?.Invoke(1.0f, "Done!");
+            OnProgressPhaseUpdate?.Invoke(1.0f, "Done!");
+
+            await Task.Delay(1000);
             LoadingScreen.IsVisible = false;
             isMapReady = true;
         });
+
 
         LocalMap = SurfaceMap;
 

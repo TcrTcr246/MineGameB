@@ -13,8 +13,8 @@ using System.Reflection.Metadata;
 namespace MineGameB.World;
 public class Map {
     public int TileSize { get; private set; } = 32;
-    public int Width { get; private set; } = 2000;
-    public int Height { get; private set; } = 2000;
+    public int Width { get; private set; } = 1000;
+    public int Height { get; private set; } = 1000;
     public int Depth { get; private set; } = 4;
     public int WorldWidth { get; private set; } = 0;
     public int WorldHeight { get; private set; } = 0;
@@ -492,7 +492,8 @@ public class Map {
         JustOutsideWorldZoom = !InWorldZoom && !wasInWorldZoom;
         wasInWorldZoom = !InWorldZoom;
         if (firstFrame || JustOutsideWorldZoom) {
-            GenTex();
+            for (int i = 0; i < modifiedTexPoints.Count; i++)
+                ApplyModifTex(modifiedTexPoints[i], modifiedTexColors[i]);
         }
         firstFrame = false;
 

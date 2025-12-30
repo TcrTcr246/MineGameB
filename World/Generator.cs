@@ -1,7 +1,9 @@
 ﻿using Microsoft.Xna.Framework;
+using MineGameB.Misc;
 using MineGameB.Scenes;
 using MineGameB.World.Tiles;
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 
 namespace MineGameB.World;
@@ -15,8 +17,8 @@ public class Generator {
 
     private static int[] permutation;
 
-    // Event for progress updates
-    public event Action<float, string> OnProgressUpdate;
+    public static event Action<float, string> OnProgressUpdate;
+    public static event Action<float, string> OnProgressPhaseUpdate;
 
     public Generator(int width, int height, int pixelSize, int depth = 10) {
         Width = width;
@@ -116,50 +118,6 @@ public class Generator {
         return this;
     }
 
-    // Multi-layer version
-    public Generator GenerateNoiseBasedTerrainMultiLayer(
-        Func<float, int, int, int, Random, int> layeredTileSelector,
-        float scale = float.NaN,
-        int octaves = int.MinValue,
-        float persistence = float.NaN,
-        float lacunarity = float.NaN,
-        bool useEdgeFalloff = true,
-        float falloffStart = 0f,
-        float falloffEnd = 0.2f) {
-
-        scale = float.IsNaN(scale) ? _scale : scale;
-        octaves = octaves == int.MinValue ? _octaves : octaves;
-        persistence = float.IsNaN(persistence) ? _persistence : persistence;
-        lacunarity = float.IsNaN(lacunarity) ? _lacunarity : lacunarity;
-
-        var rng = new Random((int)Seed);
-        InitializePermutation(rng);
-
-        float[,] noise = GenerateNoiseMap(Width, Height, rng, scale, octaves, persistence, lacunarity);
-
-        for (int x = 0; x < Width; x++) {
-            for (int y = 0; y < Height; y++) {
-                float value = noise[x, y];
-
-                if (useEdgeFalloff) {
-                    float edgeDistX = Math.Min(x, Width - 1 - x) / (Width * 0.5f);
-                    float edgeDistY = Math.Min(y, Height - 1 - y) / (Height * 0.5f);
-                    float edgeDist = Math.Min(edgeDistX, edgeDistY);
-                    float falloff = Smoothstep(falloffStart, falloffEnd, edgeDist);
-                    value = falloff > 0 ? value / falloff : value;
-                }
-
-                // Generate each layer
-                for (int layer = 0; layer < Depth; layer++) {
-                    int tileId = layeredTileSelector(value, x, y, layer, rng);
-                    Tiles[x, y, layer] = tileId;
-                }
-            }
-        }
-
-        return this;
-    }
-
     // Helper method for weighted random selection
     public int GetWeightedRandomVariant(Random rng, int[] priorities) {
         int totalWeight = 0;
@@ -179,134 +137,126 @@ public class Generator {
         return 0;
     }
 
-    public Generator GenerateWallAnd2FloorVariant(string wallName, string floor1, string floor2,
-        float scale = float.NaN, int octaves = int.MinValue, float persistence = float.NaN, float lacunarity = float.NaN) {
+    public static void ReportProgress(float progress, string message) {
+        OnProgressUpdate?.Invoke(progress, message);
+    }
+    public static void ReportPhaseProgress(float progress, string message) {
+        OnProgressPhaseUpdate?.Invoke(progress, message);
+    }
+
+
+    public async Task<int[,,]> GenerateWallAnd2FloorVariant(
+        string wallName,
+        string floor1,
+        string floor2,
+        float scale = float.NaN,
+        int octaves = int.MinValue,
+        float persistence = float.NaN,
+        float lacunarity = float.NaN) {
+
+        return await Task.Run(() => {
+            var progress = OnProgressUpdate;
+
+            ReportProgress(0.0f, "Initializing terrain generation...");
+
+            scale = float.IsNaN(scale) ? _scale : scale;
+            octaves = octaves == int.MinValue ? _octaves : octaves;
+            persistence = float.IsNaN(persistence) ? _persistence : persistence;
+            lacunarity = float.IsNaN(lacunarity) ? _lacunarity : lacunarity;
+            int bands = _bands;
+            float bandWidth = _bandWidth;
+
+            ReportProgress(0.1f, "Parameters configured");
+
+            // You'll need to modify GenerateNoiseBasedTerrainMultiLayer to accept progress
+            return GenerateNoiseBasedTerrainMultiLayerWithProgress(
+                (value, x, y, layer, rng) => {
+                    if (layer == 0) {
+                        return rng.Next(2) == 0
+                            ? GameScene.TileRegister.GetIdByName(floor1)
+                            : GameScene.TileRegister.GetIdByName(floor2);
+                    } else if (layer == 1) {
+                        if (ShouldPlaceWall(value, bands, bandWidth)) {
+                            return GameScene.TileRegister.GetIdByName(wallName);
+                        }
+                        return 0;
+                    }
+                    return 0;
+                },
+                scale: scale,
+                octaves: octaves,
+                persistence: persistence,
+                lacunarity: lacunarity,
+                useEdgeFalloff: true,
+                falloffStart: 0f,
+                falloffEnd: 0.2f
+            ).Tiles;
+        });
+    }
+
+    public Generator GenerateNoiseBasedTerrainMultiLayerWithProgress(
+        Func<float, int, int, int, Random, int> layeredTileSelector,
+        float scale = float.NaN,
+        int octaves = int.MinValue,
+        float persistence = float.NaN,
+        float lacunarity = float.NaN,
+        bool useEdgeFalloff = true,
+        float falloffStart = 0f,
+        float falloffEnd = 0.2f) {
 
         scale = float.IsNaN(scale) ? _scale : scale;
         octaves = octaves == int.MinValue ? _octaves : octaves;
         persistence = float.IsNaN(persistence) ? _persistence : persistence;
         lacunarity = float.IsNaN(lacunarity) ? _lacunarity : lacunarity;
 
-        int bands = _bands;
-        float bandWidth = _bandWidth;
+        ReportProgress(0.15f, "Initializing RNG and permutation table...");
+        var rng = new Random((int)Seed);
+        InitializePermutation(rng);
 
-        return GenerateNoiseBasedTerrainMultiLayer(
-            (value, x, y, layer, rng) => {
-                if (layer == 0) {
-                    // Floor layer - randomly choose between floor1 and floor2
-                    return rng.Next(2) == 0
-                        ? GameScene.TileRegister.GetIdByName(floor1)
-                        : GameScene.TileRegister.GetIdByName(floor2);
-                } else if (layer == 1) {
-                    // Wall layer - place wall based on noise bands
-                    if (ShouldPlaceWall(value, bands, bandWidth)) {
-                        return GameScene.TileRegister.GetIdByName(wallName);
-                    }
-                    return 0;
-                }
-                return 0;
-            },
-            scale: scale,
-            octaves: octaves,
-            persistence: persistence,
-            lacunarity: lacunarity,
-            useEdgeFalloff: true,
-            falloffStart: 0f,
-            falloffEnd: 0.2f
-        );
-    }
+        ReportProgress(0.2f, "Generating noise map...");
+        float[,] noise = GenerateNoiseMap(Width, Height, rng, scale, octaves, persistence, lacunarity);
 
-    // ASYNC version with progress tracking
-    public async Task GenerateWallAnd2FloorVariantAsync(
-        string wallName, string floor1, string floor2,
-        float scale = float.NaN, int octaves = int.MinValue,
-        float persistence = float.NaN, float lacunarity = float.NaN) {
+        ReportProgress(0.4f, "Processing terrain tiles...");
 
-        await Task.Run(() => {
-            OnProgressUpdate?.Invoke(0.1f, "Initializing generation...");
-            GenerateWallAnd2FloorVariant(wallName, floor1, floor2, scale, octaves, persistence, lacunarity);
-            OnProgressUpdate?.Invoke(1.0f, "Generation complete!");
-        });
-    }
-
-    public int[,,] GenerateTopograficMap() {
-        var rng = new Random(GetSeed());
-        var TileRegister = GameScene.TileRegister;
-
-        int[,,] tiles = new int[Width, Height, Depth];
-
-        var elevationNoise = GenerateNoiseMap(
-            Width, Height, rng,
-            scale: 240f, octaves: 6, persistence: 0.5f, lacunarity: 2.0f);
-
-        var moistureNoise = GenerateNoiseMap(
-            Width, Height, new Random(rng.Next()),
-            scale: 180f, octaves: 4, persistence: 0.4f, lacunarity: 2.5f);
+        int totalTiles = Width * Height;
+        int processedTiles = 0;
 
         for (int x = 0; x < Width; x++) {
             for (int y = 0; y < Height; y++) {
-                float elevation = elevationNoise[x, y];
-                float moisture = moistureNoise[x, y];
+                float value = noise[x, y];
 
-                // --- Border ---
-                float distX = Math.Min(x, Width - 1 - x);
-                float distY = Math.Min(y, Height - 1 - y);
-                float dist = Math.Min(distX, distY);
-
-                float borderNoise = (elevation + moisture) * 3f;
-                bool isBorder = dist < (20f + borderNoise);
-
-                if (isBorder) {
-                    tiles[x, y, 0] = TileRegister.GetIdByName("water");
-                    tiles[x, y, 1] = TileRegister.GetIdByName("ultraRock");
-                    continue;
+                if (useEdgeFalloff) {
+                    float edgeDistX = Math.Min(x, Width - 1 - x) / (Width * 0.5f);
+                    float edgeDistY = Math.Min(y, Height - 1 - y) / (Height * 0.5f);
+                    float edgeDist = Math.Min(edgeDistX, edgeDistY);
+                    float falloff = Smoothstep(falloffStart, falloffEnd, edgeDist);
+                    value = falloff > 0 ? value / falloff : value;
                 }
 
-                // --- Ground layer (0) ---
-                int groundId;
-
-                if (elevation < 0.3f) {
-                    groundId = TileRegister.GetIdByName("water");
-                } else if (elevation < 0.38f) {
-                    int v = GetWeightedRandomVariant(rng, new[] { 10, 10, 1, 1 });
-                    groundId = TileRegister.GetIdByName("sandVar1") + v;
-                } else {
-                    if (moisture < 0.3f) {
-                        int v = GetWeightedRandomVariant(rng, new[] { 5, 5 });
-                        groundId = TileRegister.GetIdByName("sandVar1") + v;
-                    } else if (moisture > 0.5f) {
-                        int v = GetWeightedRandomVariant(rng, new[] { 5, 5, 3 });
-                        groundId = TileRegister.GetIdByName("forestVar1") + v;
-                    } else {
-                        int v = GetWeightedRandomVariant(rng, new[] { 7, 7, 7, 1 });
-                        groundId = TileRegister.GetIdByName("grassVar1") + v;
-                    }
+                // Generate each layer
+                for (int layer = 0; layer < Depth; layer++) {
+                    int tileId = layeredTileSelector(value, x, y, layer, rng);
+                    Tiles[x, y, layer] = tileId;
                 }
 
-                tiles[x, y, 0] = groundId;
-
-                // --- Mountain layer (1) ---
-                int mountainId = 0;
-
-                if (elevation >= 0.75f && elevation < 0.85f) {
-                    mountainId = TileRegister.GetIdByName("mountain");
-                } else if (elevation >= 0.85f && elevation < 0.93f) {
-                    mountainId = TileRegister.GetIdByName("highMountain");
-                } else if (elevation >= 0.93f) {
-                    mountainId = TileRegister.GetIdByName("ultraHighMountain");
+                processedTiles++;
+                // Report progress every 5% of tiles
+                if (processedTiles % (totalTiles / 20) == 0) {
+                    var tyconConvert = TyconNumberConvertor.Convert;
+                    float progressValue = 0.4f + (processedTiles / (float)totalTiles) * 0.55f;
+                    ReportProgress(progressValue, $"Placing tiles... {tyconConvert(processedTiles)}/{tyconConvert(totalTiles)}");
                 }
-
-                tiles[x, y, 1] = mountainId;
             }
         }
 
-        return tiles;
+        ReportProgress(0.95f, "Finalizing terrain...");
+        ReportProgress(1.0f, "Terrain generation complete!");
+
+        return this;
     }
 
-    // ASYNC version with detailed progress tracking
     public async Task<int[,,]> GenerateTopograficMapAsync() {
-        return await Task.Run(() =>
-        {
+        return await Task.Run(() => {
             var rng = new Random(GetSeed());
             InitializePermutation(rng); // Initialize permutation array FIRST
 
@@ -314,30 +264,28 @@ public class Generator {
             int[,,] tiles = new int[Width, Height, Depth];
 
             // Step 1: Generate elevation noise (0-25%)
-            OnProgressUpdate?.Invoke(0.0f, "Initializing elevation map...");
+            ReportProgress(0.0f, "Initializing elevation map...");
             var elevationNoise = GenerateNoiseMap(
                 Width, Height, rng,
                 scale: 240f,
                 octaves: 6,
                 persistence: 0.5f,
                 lacunarity: 2.0f);
-            OnProgressUpdate?.Invoke(0.25f, "Elevation map complete");
 
             // Step 2: Generate moisture noise (25-45%)
-            OnProgressUpdate?.Invoke(0.25f, "Initializing moisture map...");
+            ReportProgress(0.25f, "Initializing moisture map...");
             var moistureNoise = GenerateNoiseMap(
                 Width, Height, new Random(rng.Next()),
                 scale: 180f,
                 octaves: 4,
                 persistence: 0.4f,
                 lacunarity: 2.5f);
-            OnProgressUpdate?.Invoke(0.45f, "Moisture map complete");
 
             // Step 3: Process tiles (45-100%)
-            OnProgressUpdate?.Invoke(0.45f, "Beginning terrain placement...");
+            ReportProgress(0.5f, "Placing tiles...");
+
             int totalTiles = Width * Height;
             int processedTiles = 0;
-            int updateInterval = Math.Max(1, totalTiles / 200); // Update every 0.5% for smoother progress
 
             for (int x = 0; x < Width; x++) {
                 for (int y = 0; y < Height; y++) {
@@ -355,7 +303,7 @@ public class Generator {
                         tiles[x, y, 0] = TileRegister.GetIdByName("water");
                         tiles[x, y, 1] = TileRegister.GetIdByName("ultraRock");
                         processedTiles++;
-                        continue;
+                        goto _continue;
                     }
 
                     // Ground layer
@@ -392,18 +340,20 @@ public class Generator {
 
                     tiles[x, y, 1] = mountainId;
 
-                    // Update progress more frequently for smoother progression
+                    _continue:
+                    // Update progress smoothly
                     processedTiles++;
-                    if (processedTiles % updateInterval == 0) {
-                        float tileProgress = processedTiles / (float)totalTiles;
-                        float progress = 0.45f + (tileProgress * 0.55f); // Maps 0-100% of tiles to 45-100% progress
-                        int percentComplete = (int)(tileProgress * 100);
-                        OnProgressUpdate?.Invoke(progress, $"Placing tiles... {percentComplete}%");
+                    if (processedTiles % (totalTiles / 20) == 0) {
+                        var tyconConvert = TyconNumberConvertor.Convert;
+                        float progressValue = 0.4f + (processedTiles / (float)totalTiles) * 0.55f;
+                        ReportProgress(progressValue, $"Placing tiles... {tyconConvert(processedTiles)}/{tyconConvert(totalTiles)}");
                     }
                 }
             }
 
-            OnProgressUpdate?.Invoke(1.0f, "Generation complete!");
+            // Final update
+            ReportProgress(1.0f, "Terrain generation complete");
+
             return tiles;
         });
     }

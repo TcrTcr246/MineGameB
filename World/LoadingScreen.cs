@@ -10,7 +10,11 @@ public class LoadingScreen {
     private Texture2D _pixelTexture;
 
     public string Message { get; set; } = "Loading...";
-    public float Progress { get; set; } = 0f; // 0.0 to 1.0
+    public float Progress { get; set; } = 0f;
+
+    public string PhaseMessage { get; set; } = "Loading...";
+    public float PhaseProgress { get; set; } = 0f;
+
     public bool IsVisible { get; set; } = false;
 
     private float _spinnerRotation = 0f;
@@ -52,7 +56,7 @@ public class LoadingScreen {
         int barWidth = 400;
         int barHeight = 30;
         int barX = (screenWidth - barWidth) / 2;
-        int barY = screenHeight / 2 + 20;
+        int barY = screenHeight / 2 + 5;
 
         // Progress bar background
         _spriteBatch.Draw(_pixelTexture,
@@ -84,7 +88,42 @@ public class LoadingScreen {
         _spriteBatch.DrawString(_font, percentText, percentPos, Color.White);
 
         // Spinning loading indicator
-        DrawSpinner(screenWidth / 2, screenHeight / 2 - 80, 30, 6);
+        DrawSpinner(screenWidth / 2, screenHeight / 2 - 100, 30, 6);
+
+        // Phase progress bar (smaller and below main bar)
+        int phaseBarWidth = 280;
+        int phaseBarHeight = 20;
+        int phaseBarX = (screenWidth - phaseBarWidth) / 2;
+        int phaseBarY = barY + barHeight + 70;
+
+        // Phase progress bar background
+        _spriteBatch.Draw(_pixelTexture,
+            new Rectangle(phaseBarX, phaseBarY, phaseBarWidth, phaseBarHeight),
+            Color.DarkGray);
+
+        // Phase progress bar fill
+        int phaseFillWidth = (int)(phaseBarWidth * Math.Clamp(PhaseProgress, 0f, 1f));
+        _spriteBatch.Draw(_pixelTexture,
+            new Rectangle(phaseBarX, phaseBarY, phaseFillWidth, phaseBarHeight),
+            Color.CornflowerBlue);
+
+        // Phase progress bar border
+        DrawRectangleBorder(phaseBarX, phaseBarY, phaseBarWidth, phaseBarHeight, 2, Color.White);
+
+        // Phase message
+        Vector2 phaseMessageSize = _font.MeasureString(PhaseMessage);
+        Vector2 phaseMessagePos = new Vector2(
+            (screenWidth - phaseMessageSize.X) / 2,
+            phaseBarY - phaseMessageSize.Y - 10);
+        _spriteBatch.DrawString(_font, PhaseMessage, phaseMessagePos, Color.LightGray);
+
+        // Phase percentage text
+        string phasePercentText = $"{(int)(PhaseProgress * 100)}%";
+        Vector2 phasePercentSize = _font.MeasureString(phasePercentText);
+        Vector2 phasePercentPos = new Vector2(
+            (screenWidth - phasePercentSize.X) / 2,
+            phaseBarY + phaseBarHeight + 5);
+        _spriteBatch.DrawString(_font, phasePercentText, phasePercentPos, Color.LightGray);
 
         _spriteBatch.End();
     }
