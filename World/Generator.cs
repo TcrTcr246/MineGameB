@@ -305,31 +305,39 @@ public class Generator {
 
     // ASYNC version with detailed progress tracking
     public async Task<int[,,]> GenerateTopograficMapAsync() {
-        return await Task.Run(() => {
+        return await Task.Run(() =>
+        {
             var rng = new Random(GetSeed());
             InitializePermutation(rng); // Initialize permutation array FIRST
-            var TileRegister = GameScene.TileRegister;
 
+            var TileRegister = GameScene.TileRegister;
             int[,,] tiles = new int[Width, Height, Depth];
 
-            // Step 1: Generate elevation noise (0-30%)
-            OnProgressUpdate?.Invoke(0.0f, "Generating elevation map...");
+            // Step 1: Generate elevation noise (0-25%)
+            OnProgressUpdate?.Invoke(0.0f, "Initializing elevation map...");
             var elevationNoise = GenerateNoiseMap(
                 Width, Height, rng,
-                scale: 240f, octaves: 6, persistence: 0.5f, lacunarity: 2.0f);
+                scale: 240f,
+                octaves: 6,
+                persistence: 0.5f,
+                lacunarity: 2.0f);
+            OnProgressUpdate?.Invoke(0.25f, "Elevation map complete");
 
-            // Step 2: Generate moisture noise (30-50%)
-            OnProgressUpdate?.Invoke(0.3f, "Generating moisture map...");
+            // Step 2: Generate moisture noise (25-45%)
+            OnProgressUpdate?.Invoke(0.25f, "Initializing moisture map...");
             var moistureNoise = GenerateNoiseMap(
                 Width, Height, new Random(rng.Next()),
-                scale: 180f, octaves: 4, persistence: 0.4f, lacunarity: 2.5f);
+                scale: 180f,
+                octaves: 4,
+                persistence: 0.4f,
+                lacunarity: 2.5f);
+            OnProgressUpdate?.Invoke(0.45f, "Moisture map complete");
 
-            // Step 3: Process tiles (50-100%)
-            OnProgressUpdate?.Invoke(0.5f, "Placing terrain tiles...");
-
+            // Step 3: Process tiles (45-100%)
+            OnProgressUpdate?.Invoke(0.45f, "Beginning terrain placement...");
             int totalTiles = Width * Height;
             int processedTiles = 0;
-            int updateInterval = Math.Max(1, totalTiles / 100); // Update every 1% of tiles
+            int updateInterval = Math.Max(1, totalTiles / 200); // Update every 0.5% for smoother progress
 
             for (int x = 0; x < Width; x++) {
                 for (int y = 0; y < Height; y++) {
@@ -340,7 +348,6 @@ public class Generator {
                     float distX = Math.Min(x, Width - 1 - x);
                     float distY = Math.Min(y, Height - 1 - y);
                     float dist = Math.Min(distX, distY);
-
                     float borderNoise = (elevation + moisture) * 3f;
                     bool isBorder = dist < (20f + borderNoise);
 
@@ -356,17 +363,17 @@ public class Generator {
                     if (elevation < 0.3f) {
                         groundId = TileRegister.GetIdByName("water");
                     } else if (elevation < 0.38f) {
-                        int v = GetWeightedRandomVariant(rng, new[] { 10, 10, 1, 1 });
+                        int v = GetWeightedRandomVariant(rng, [10, 10, 1, 1]);
                         groundId = TileRegister.GetIdByName("sandVar1") + v;
                     } else {
                         if (moisture < 0.3f) {
-                            int v = GetWeightedRandomVariant(rng, new[] { 5, 5 });
+                            int v = GetWeightedRandomVariant(rng, [5, 5]);
                             groundId = TileRegister.GetIdByName("sandVar1") + v;
                         } else if (moisture > 0.5f) {
-                            int v = GetWeightedRandomVariant(rng, new[] { 5, 5, 3 });
+                            int v = GetWeightedRandomVariant(rng, [5, 5, 3]);
                             groundId = TileRegister.GetIdByName("forestVar1") + v;
                         } else {
-                            int v = GetWeightedRandomVariant(rng, new[] { 7, 7, 7, 1 });
+                            int v = GetWeightedRandomVariant(rng, [1, 1, 1, 40, 40, 5]);
                             groundId = TileRegister.GetIdByName("grassVar1") + v;
                         }
                     }
@@ -385,11 +392,12 @@ public class Generator {
 
                     tiles[x, y, 1] = mountainId;
 
-                    // Update progress periodically
+                    // Update progress more frequently for smoother progression
                     processedTiles++;
                     if (processedTiles % updateInterval == 0) {
-                        float progress = 0.5f + (processedTiles / (float)totalTiles) * 0.5f;
-                        int percentComplete = (int)((processedTiles / (float)totalTiles) * 100);
+                        float tileProgress = processedTiles / (float)totalTiles;
+                        float progress = 0.45f + (tileProgress * 0.55f); // Maps 0-100% of tiles to 45-100% progress
+                        int percentComplete = (int)(tileProgress * 100);
                         OnProgressUpdate?.Invoke(progress, $"Placing tiles... {percentComplete}%");
                     }
                 }

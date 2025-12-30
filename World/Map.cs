@@ -547,8 +547,6 @@ public class Map {
 
     public void DrawMap(SpriteBatch spriteBatch, Rectangle position) {
         (spriteBatch, position).ToString();
-        if (drawedTexture != null) {
-            spriteBatch.Draw(drawedTexture, position, Color.White);
-        }
+        spriteBatch.Draw(drawedTexture, position, Color.White);
     }
 }

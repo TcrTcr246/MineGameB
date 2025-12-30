@@ -8,6 +8,7 @@ using MineGameB.World;
 using MineGameB.World.Objects;
 using MineGameB.World.Tiles;
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection.Emit;
 using System.Threading.Tasks;
@@ -17,7 +18,7 @@ public class GameScene() : Scene("game") {
     public static Map CaveMap { get; set; }
     public static Map SurfaceMap { get; set; }
     public static Map LocalMap { get; set; }
-    public static LoadingScreen loadingScreen { get; set; }
+    public static LoadingScreen LoadingScreen { get; set; }
 
     public static TileRegister TileRegister { get; set; }
 
@@ -31,7 +32,7 @@ public class GameScene() : Scene("game") {
 
     MouseState ms, lms;
 
-    public static Player Player = new();
+    public static Player Player { get; set; } = new();
 
 #pragma warning disable IDE0079
 #pragma warning disable CA1822
@@ -114,6 +115,10 @@ public class GameScene() : Scene("game") {
             return register(new Tile(tileset, new(px * t, py * t, t, t), name));
         }
 
+        Random TileCoveredRandomizer = new();
+        Func<int, int, int> randSand = (myId, overId) => TileRegister.GetIdByName("sandVar1") + TileCoveredRandomizer.Next(0, 1);
+        Func<int, int, int> randGrass = (myId, overId) => TileRegister.GetIdByName("grassVar6");
+
         register(new(CaveTileset, new(0, 64, 32, 32), "debug")).SetMapColor(Color.Magenta);
         register(new(CaveTileset, new(32, 64, 32, 32), "blank_white")).SetMapColor(Color.White).SetDrawColor(Color.White);
         register(new(CaveTileset, new(32, 64, 32, 32), "blank_blue")).SetMapColor(Color.AliceBlue).SetDrawColor(Color.AliceBlue);
@@ -122,21 +127,23 @@ public class GameScene() : Scene("game") {
         newTile(CaveTileset, "floor2", 1, 0).SetMapColor(Color.DarkGray);
         newTile(CaveTileset, "wall", 3, 0).SetMapColor(Color.Gray).SetSolid().SetDurity(150f).SetLightPassable(false);
 
-        newTile(SurfaceTileset, "grassVar1", 0, 0).SetMapColor(Color.LightGreen);
-        newTile(SurfaceTileset, "grassVar2", 1, 0).SetMapColor(Color.LightGreen);
-        newTile(SurfaceTileset, "grassVar3", 2, 0).SetMapColor(Color.LightGreen);
+        newTile(SurfaceTileset, "grassVar1", 0, 0).SetMapColor(Color.LightGreen).SetTransformIntoAfterCover(randGrass);
+        newTile(SurfaceTileset, "grassVar2", 1, 0).SetMapColor(Color.LightGreen).SetTransformIntoAfterCover(randGrass);
+        newTile(SurfaceTileset, "grassVar3", 2, 0).SetMapColor(Color.LightGreen).SetTransformIntoAfterCover(randGrass);
         newTile(SurfaceTileset, "grassVar4", 3, 0).SetMapColor(Color.LightGreen);
+        newTile(SurfaceTileset, "grassVar5", 4, 0).SetMapColor(Color.LightGreen);
+        newTile(SurfaceTileset, "grassVar6", 5, 0).SetMapColor(Color.LightGreen);
 
         newTile(SurfaceTileset, "forestVar1", 0, 1).SetMapColor(Color.Green);
         newTile(SurfaceTileset, "forestVar2", 1, 1).SetMapColor(Color.Green);
         newTile(SurfaceTileset, "forestVar3", 2, 1).SetMapColor(Color.Green);
 
+        var yellow = new Color(250, 255, 160);
         newTile(SurfaceTileset, "water", 0, 3).SetMapColor(Color.LightBlue).SetSolid();
-        newTile(SurfaceTileset, "sandVar1", 0, 2).SetMapColor(Color.LightGoldenrodYellow);
-        newTile(SurfaceTileset, "sandVar2", 1, 2).SetMapColor(Color.LightGoldenrodYellow);
-        Func<int, int, int> randSand = (myId, overId) => TileRegister.GetIdByName("sandVar1") + new Random().Next(0, 1);
-        newTile(SurfaceTileset, "sandVar3", 2, 2).SetMapColor(Color.LightGoldenrodYellow).SetTransformIntoAfterCover(randSand);
-        newTile(SurfaceTileset, "sandVar4", 3, 2).SetMapColor(Color.LightGoldenrodYellow).SetTransformIntoAfterCover(randSand);
+        newTile(SurfaceTileset, "sandVar1", 0, 2).SetMapColor(yellow);
+        newTile(SurfaceTileset, "sandVar2", 1, 2).SetMapColor(yellow);
+        newTile(SurfaceTileset, "sandVar3", 2, 2).SetMapColor(yellow).SetTransformIntoAfterCover(randSand);
+        newTile(SurfaceTileset, "sandVar4", 3, 2).SetMapColor(yellow).SetTransformIntoAfterCover(randSand);
 
         newTile(SurfaceTileset, "mountain", 0, 5).SetMapColor(Color.LightGray).SetSolid().SetDurity(150f).SetLightPassable(false);
         newTile(SurfaceTileset, "highMountain", 1, 5).SetMapColor(Color.DarkGray).SetSolid().SetDurity(450f).SetLightPassable(false);
@@ -148,20 +155,20 @@ public class GameScene() : Scene("game") {
         // CaveMap.NewGenerate(CaveMap.Generator.GenerateWallAnd2FloorVariant("wall", "floor1", "floor2").Tiles);
 
         SpriteFont font = Content.Load<SpriteFont>("Font");
-        loadingScreen = new LoadingScreen(font);
+        LoadingScreen = new LoadingScreen(font);
 
         SurfaceMap = new Map();
         SurfaceMap.Generator.OnProgressUpdate += (progress, message) => {
-            loadingScreen.Progress = progress;
-            loadingScreen.Message = message;
+            LoadingScreen.Progress = progress;
+            LoadingScreen.Message = message;
         };
 
-        loadingScreen.IsVisible = true;
+        LoadingScreen.IsVisible = true;
 
         Task.Run(async () => {
             var tiles = await SurfaceMap.Generator.GenerateTopograficMapAsync();
             SurfaceMap.NewGenerate(tiles);
-            loadingScreen.IsVisible = false;
+            LoadingScreen.IsVisible = false;
             isMapReady = true;
         });
 
@@ -174,8 +181,11 @@ public class GameScene() : Scene("game") {
         base.Load();
     }
 
+    bool wasMapReady = false;
     public override void Update(GameTime gameTime) {
-        loadingScreen.Update(gameTime);
+        LoadingScreen.Update(gameTime);
+        bool isMapJustReady = !wasMapReady && isMapReady;
+        wasMapReady = isMapReady;
 
         if (!isMapReady) {
             base.Update(gameTime);
@@ -188,7 +198,8 @@ public class GameScene() : Scene("game") {
         }
 
         // Set player position on first frame after generation
-        if (Player.Center == Point.Zero) {
+        if (isMapJustReady) {
+            Debug.WriteLine("Map is ready.");
             Player.SetPosition(new Vector2(LocalMap.WorldWidth / 2, LocalMap.WorldHeight / 2));
             Camera.MoveHardTo(Player.Center.ToVector2());
         }
@@ -200,10 +211,13 @@ public class GameScene() : Scene("game") {
 
         var LS = Keyboard.GetState().IsKeyDown(Keys.LeftShift);
         var LC = Keyboard.GetState().IsKeyDown(Keys.LeftControl);
+        var F = Keyboard.GetState().IsKeyDown(Keys.F);
 
         if (LS) {
             Camera.ScaleIndependent(gameTime, 100f, 7f, 0.008f);
             Camera.MoveIndependent(gameTime, LC ? 20000 : 3000);
+            if (F)
+                Player.SetPosition(Camera.MouseWorld);
         } else {
             Camera.ScaleIndependent(gameTime, 100f, 7f, 0.55f);
             Camera.MoveTo(gameTime, Player.Center.ToVector2());
@@ -235,7 +249,7 @@ public class GameScene() : Scene("game") {
         Game1Inst.DrawBackground(Color.CornflowerBlue);
 
         if (!isMapReady) {
-            loadingScreen.Draw(spriteBatch);
+            LoadingScreen.Draw(spriteBatch);
             base.Draw(spriteBatch);
             return;
         }
@@ -248,7 +262,7 @@ public class GameScene() : Scene("game") {
         if (useShadowEffect)
             shadowEffect.Draw(spriteBatch);
 
-        loadingScreen.Draw(spriteBatch);
+        LoadingScreen.Draw(spriteBatch);
         base.Draw(spriteBatch);
     }
 }

@@ -40,7 +40,8 @@ public class LoadingScreen {
         int screenWidth = viewport.Width;
         int screenHeight = viewport.Height;
 
-        _spriteBatch.Begin();
+        _spriteBatch.Begin(transformMatrix:Game1.Instance.LetterboxUITransform);
+        Game1.Instance.DrawBackground(Color.Black);
 
         // Semi-transparent background overlay
         _spriteBatch.Draw(_pixelTexture,
