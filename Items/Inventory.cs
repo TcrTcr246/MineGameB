@@ -46,7 +46,7 @@ public class Inventory {
     private const int SLOTS_PER_ROW = 5;
     private const int TOTAL_SLOTS = HOTBAR_SLOTS + (TOTAL_ROWS - 1) * SLOTS_PER_ROW;
 
-    private const int SLOT_SIZE = 56;
+    private const int SLOT_SIZE = 48;
     private const int SLOT_PADDING = 2;
     private const int HOTBAR_Y_OFFSET = 20;
 
@@ -96,6 +96,42 @@ public class Inventory {
         screenWidth = Game1.Instance.Camera.Screen.Width;
         screenHeight = Game1.Instance.Camera.Screen.Height;
     }
+
+    public bool IsMouseUsed() {
+        Vector2 mousePos = Game1.Instance.Camera.MouseScreen;
+
+        if (isFullInventoryOpen) {
+            // Check if mouse is over full inventory
+            int totalWidth = SLOTS_PER_ROW * SLOT_SIZE + (SLOTS_PER_ROW - 1) * SLOT_PADDING;
+            int totalHeight = TOTAL_ROWS * SLOT_SIZE + (TOTAL_ROWS - 1) * SLOT_PADDING;
+            int startX = (screenWidth - totalWidth) / 2;
+            int startY = (screenHeight - totalHeight) / 2;
+
+            Rectangle inventoryBounds = new Rectangle(
+                startX - 20,
+                startY - 20,
+                totalWidth + 40,
+                totalHeight + 40
+            );
+
+            return inventoryBounds.Contains(mousePos);
+        } else {
+            // Check if mouse is over hotbar
+            int totalWidth = HOTBAR_SLOTS * SLOT_SIZE + (HOTBAR_SLOTS - 1) * SLOT_PADDING;
+            int startX = (screenWidth - totalWidth) / 2;
+            int startY = screenHeight - SLOT_SIZE - HOTBAR_Y_OFFSET;
+
+            Rectangle hotbarBounds = new Rectangle(
+                startX,
+                startY,
+                totalWidth,
+                SLOT_SIZE
+            );
+
+            return hotbarBounds.Contains(mousePos);
+        }
+    }
+
 
     public void Update(GameTime gameTime) {
         currKeyState = Keyboard.GetState();

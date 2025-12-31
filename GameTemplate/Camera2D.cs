@@ -135,9 +135,9 @@ public class Camera2D {
         if (sc != 0) {
             float distanceFactor = TargetZoom;
             TargetZoom += sc * (scrollSpeed / 100000f) * distanceFactor;
-            TargetZoom = MathHelper.Clamp(TargetZoom, minimum, maximum);
             scrollLerpSpeed = lerpSpeed;
         }
+        TargetZoom = MathHelper.Clamp(TargetZoom, minimum, maximum);
 
         // Apply time-based lerping
         float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;

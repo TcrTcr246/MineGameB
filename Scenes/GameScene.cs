@@ -24,6 +24,7 @@ public class GameScene() : Scene("game") {
 
     static Effects.ShadowEffect shadowEffect;
     bool useShadowEffect = true;
+    bool useCheats = true;
     private bool isMapReady = false;
 
     static ContentManager Content => Game1.Instance.Content;
@@ -150,6 +151,10 @@ public class GameScene() : Scene("game") {
         newTile(SurfaceTileset, "ultraHighMountain", 2, 5).SetMapColor(Color./*DarkSlateGray*/DarkSlateGray).SetSolid().SetDurity(3000f).SetLightPassable(false);
         newTile(SurfaceTileset, "ultraRock", 3, 4).SetMapColor(Color.Black).SetSolid().SetLightPassable(false);
 
+        newTile(SurfaceTileset, "mountain_floor", 0, 6).SetMapColor(Color.DarkGray);
+        newTile(SurfaceTileset, "highMountain_floor", 1, 6).SetMapColor(Color.Gray);
+        newTile(SurfaceTileset, "ultraHighMountain_floor", 2, 6).SetMapColor(new Color(60, 60, 60));
+
 
         CaveMap = new Map();
         SurfaceMap = new Map();
@@ -159,17 +164,19 @@ public class GameScene() : Scene("game") {
 
         Inventory = new(Game1Inst.GraphicsDevice, font, inventoryTexture);
 
-        var tile2 = TileRegister.GetTileByName("debug");
-        for (int i = 0; 15 > i; i++)
-            Inventory.AddItem(tile2.Texture, tile2.SourceRectangle, "d"+i, 1);
+        if (useCheats) {
+            var tile2 = TileRegister.GetTileByName("debug");
+            for (int i = 0; 15 > i; i++)
+                Inventory.AddItem(tile2.Texture, tile2.SourceRectangle, "d" + i, 1);
 
-        foreach (var t in new string[] { "mountain", "highMountain", "ultraHighMountain", "ultraRock", "wall" }) {
-            var tile = TileRegister.GetTileByName(t);
-            Inventory.AddItem(tile.Texture, tile.SourceRectangle, tile.Name, 99);
+            foreach (var t in new string[] { "mountain", "highMountain", "ultraHighMountain", "ultraRock", "wall" }) {
+                var tile = TileRegister.GetTileByName(t);
+                Inventory.AddItem(tile.Texture, tile.SourceRectangle, tile.Name, 99);
+            }
+
+            for (int i = 0; 15 > i; i++)
+                Inventory.GetSlot(i).Count = 0;
         }
-
-        for (int i = 0; 15 > i; i++)
-            Inventory.GetSlot(i).Count = 0;
 
 
         LoadingScreen = new LoadingScreen(font);
@@ -198,7 +205,7 @@ public class GameScene() : Scene("game") {
             OnProgressUpdate?.Invoke(0.0f, "Initializing...");
             var caveTiles = await CaveMap.Generator.GenerateWallAnd2FloorVariant("wall", "floor1", "floor2");
 
-            OnProgressPhaseUpdate?.Invoke(1f, "Finising...  (3/3)");
+            OnProgressPhaseUpdate?.Invoke(1f, "Finishing...  (3/3)");
 
             OnProgressUpdate?.Invoke(0.0f, "Processing terrain data...");
             SurfaceMap.NewGenerate(surfaceTiles);
@@ -217,7 +224,6 @@ public class GameScene() : Scene("game") {
             LoadingScreen.IsVisible = false;
             isMapReady = true;
         });
-
 
         LocalMap = SurfaceMap;
 
@@ -258,24 +264,25 @@ public class GameScene() : Scene("game") {
 
         var LS = Keyboard.GetState().IsKeyDown(Keys.LeftShift);
         var LC = Keyboard.GetState().IsKeyDown(Keys.LeftControl);
+        var LA = Keyboard.GetState().IsKeyDown(Keys.LeftAlt);
         var F = Keyboard.GetState().IsKeyDown(Keys.F);
 
-        if (LS) {
+        if (LS && useCheats) {
             Camera.ScaleIndependent(gameTime, 100f, 7f, 0.008f);
             Camera.MoveIndependent(gameTime, LC ? 20000 : 3000);
             if (F)
                 Player.SetPosition(Camera.MouseWorld);
         } else {
-            Camera.ScaleIndependent(gameTime, 100f, 7f, 0.55f);
+            Camera.ScaleIndependent(gameTime, 100f, 7f, 0.9f);
             Camera.MoveTo(gameTime, Player.Center.ToVector2());
         }
 
-        if (LocalMap.InWorldZoom) {
+        if (LocalMap.InWorldZoom && !Inventory.IsMouseUsed()) {
             Point loc = LocalMap.GetIndexAtPos(Game1.Instance.Camera.MouseWorld);
             Tile tile = LocalMap.GetTileObjectAtIndex(loc);
 
             if (ms.LeftButton == ButtonState.Pressed) {
-                LocalMap.BreakTileAtIndex(loc, gameTime);
+                LocalMap.BreakTileAtIndex(gameTime, loc, (LA && useCheats) ? 100f : 1f);
             }
 
             if (ms.RightButton == ButtonState.Pressed) {

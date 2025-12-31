@@ -262,26 +262,18 @@ public class Generator {
 
             var TileRegister = GameScene.TileRegister;
             int[,,] tiles = new int[Width, Height, Depth];
+            float scaleFactor = 1f;
 
-            // Step 1: Generate elevation noise (0-25%)
+            // Step 1: Generate elevation noise (0-50%)
             ReportProgress(0.0f, "Initializing elevation map...");
             var elevationNoise = GenerateNoiseMap(
                 Width, Height, rng,
-                scale: 240f,
+                scale: 240f * scaleFactor,
                 octaves: 6,
-                persistence: 0.5f,
-                lacunarity: 2.0f);
+                persistence: 0.5f * scaleFactor,
+                lacunarity: 2.0f * scaleFactor);
 
-            // Step 2: Generate moisture noise (25-45%)
-            ReportProgress(0.25f, "Initializing moisture map...");
-            var moistureNoise = GenerateNoiseMap(
-                Width, Height, new Random(rng.Next()),
-                scale: 180f,
-                octaves: 4,
-                persistence: 0.4f,
-                lacunarity: 2.5f);
-
-            // Step 3: Process tiles (45-100%)
+            // Step 2: Process tiles (50-100%)
             ReportProgress(0.5f, "Placing tiles...");
 
             int totalTiles = Width * Height;
@@ -290,13 +282,12 @@ public class Generator {
             for (int x = 0; x < Width; x++) {
                 for (int y = 0; y < Height; y++) {
                     float elevation = elevationNoise[x, y];
-                    float moisture = moistureNoise[x, y];
 
                     // Border detection
                     float distX = Math.Min(x, Width - 1 - x);
                     float distY = Math.Min(y, Height - 1 - y);
                     float dist = Math.Min(distX, distY);
-                    float borderNoise = (elevation + moisture) * 3f;
+                    float borderNoise = elevation * 3f;
                     bool isBorder = dist < (20f + borderNoise);
 
                     if (isBorder) {
@@ -306,24 +297,32 @@ public class Generator {
                         goto _continue;
                     }
 
-                    // Ground layer
+                    // Ground layer based on elevation
                     int groundId;
                     if (elevation < 0.3f) {
+                        // Water (lowest)
                         groundId = TileRegister.GetIdByName("water");
                     } else if (elevation < 0.38f) {
+                        // Beach/Sand
                         int v = GetWeightedRandomVariant(rng, [10, 10, 1, 1]);
                         groundId = TileRegister.GetIdByName("sandVar1") + v;
+                    } else if (elevation < 0.55f) {
+                        // Plains/Grass (low-mid elevation)
+                        int v = GetWeightedRandomVariant(rng, [1, 1, 1, 40, 40, 5]);
+                        groundId = TileRegister.GetIdByName("grassVar1") + v;
+                    } else if (elevation < 0.70f) {
+                        // Forest (mid-high elevation)
+                        int v = GetWeightedRandomVariant(rng, [5, 5, 3]);
+                        groundId = TileRegister.GetIdByName("forestVar1") + v;
+                    } else if (elevation < 0.80f) {
+                        // Mountain floor zone
+                        groundId = TileRegister.GetIdByName("mountain_floor");
+                    } else if (elevation < 0.90f) {
+                        // High mountain floor zone
+                        groundId = TileRegister.GetIdByName("highMountain_floor");
                     } else {
-                        if (moisture < 0.3f) {
-                            int v = GetWeightedRandomVariant(rng, [5, 5]);
-                            groundId = TileRegister.GetIdByName("sandVar1") + v;
-                        } else if (moisture > 0.5f) {
-                            int v = GetWeightedRandomVariant(rng, [5, 5, 3]);
-                            groundId = TileRegister.GetIdByName("forestVar1") + v;
-                        } else {
-                            int v = GetWeightedRandomVariant(rng, [1, 1, 1, 40, 40, 5]);
-                            groundId = TileRegister.GetIdByName("grassVar1") + v;
-                        }
+                        // Ultra high mountain floor zone
+                        groundId = TileRegister.GetIdByName("ultraHighMountain_floor");
                     }
 
                     tiles[x, y, 0] = groundId;
@@ -345,7 +344,7 @@ public class Generator {
                     processedTiles++;
                     if (processedTiles % (totalTiles / 20) == 0) {
                         var tyconConvert = TyconNumberConvertor.Convert;
-                        float progressValue = 0.4f + (processedTiles / (float)totalTiles) * 0.55f;
+                        float progressValue = 0.5f + (processedTiles / (float)totalTiles) * 0.5f;
                         ReportProgress(progressValue, $"Placing tiles... {tyconConvert(processedTiles)}/{tyconConvert(totalTiles)}");
                     }
                 }

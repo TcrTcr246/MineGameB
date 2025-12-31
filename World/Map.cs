@@ -366,7 +366,7 @@ public class Map {
         }
     }
 
-    public void BreakTileAtIndex(Point p, GameTime gameTime) {
+    public void BreakTileAtIndex(GameTime gameTime, Point p, float powerFactor = 1) {
         int topTileId = GetTileAtIndex(p);
         Tile tile = GameScene.TileRegister.GetTileById(topTileId);
 
@@ -381,7 +381,7 @@ public class Map {
             Breaks[p] = breakData;
         }
 
-        breakData.BreakAmount += (float)gameTime.ElapsedGameTime.TotalSeconds * 1000;
+        breakData.BreakAmount += (float)gameTime.ElapsedGameTime.TotalSeconds * 1000 * powerFactor;
         breakData.LastHitTime = currentTime;
 
         if (breakData.BreakAmount >= maxBreaks) {
