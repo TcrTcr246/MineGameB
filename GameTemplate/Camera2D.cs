@@ -151,7 +151,13 @@ public class Camera2D {
             Letterbox.ViewportHeight,
             0f
         );
-        var PosMat = new Vector3(-Position, 0);
+
+        var scaledPosition = Position * TotalZoom;
+        var roundedScaledPosition = new Vector2(
+            (float)Math.Round(scaledPosition.X),
+            (float)Math.Round(scaledPosition.Y)
+        );
+        var PosMat = new Vector3(-roundedScaledPosition / TotalZoom, 0);
 
         return
             Matrix.CreateRotationZ(Rotation) *

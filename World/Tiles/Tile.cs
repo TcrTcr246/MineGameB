@@ -5,72 +5,74 @@ using System;
 
 namespace MineGameB.World.Tiles;
 
-public class Tile(Texture2D texture, Rectangle sourceRectangle, string name) {
-    private int Id { get; set; }
-    public Tile SetId(int id) {
+public class Tile {
+    public Tile(Texture2D texture, Rectangle sourceRectangle, string name) {
+        Texture = texture;
+        SourceRectangle = sourceRectangle;
+        Name = name;
+    }
+
+    public int Id { get; private set; }
+    internal Tile SetId(int id) {
         Id = id;
         return this;
     }
 
-    public Texture2D Texture { get; protected set; } = texture;
-    public Rectangle SourceRectangle { get; protected set; } = sourceRectangle;
-    public int MapLayer = 0;
-    public Tile SetMapLayer(int layer) {
-        MapLayer = layer;
-        return this;
-    }
+    public Texture2D Texture { get; private set; }
+    public Rectangle SourceRectangle { get; private set; }
 
-    public bool IsSolid { get; protected set; } = false;
+    public bool IsSolid { get; private set; } = false;
     public Tile SetSolid(bool v = true) {
         IsSolid = v;
         return this;
     }
 
-    public string Name { get; protected set; } = name;
+    public string Name { get; private set; } = "unnamed";
     public Tile SetName(string name) {
         Name = name;
         return this;
     }
 
-    public Color MapColor { get; protected set; } = Color.White;
+    public Color MapColor { get; private set; } = Color.White;
     public Tile SetMapColor(Color color) {
         MapColor = color;
         return this;
     }
 
-    public Color DrawColor { get; protected set; } = Color.White;
-    public Tile SetDrawColor(Color? color=null) {
+    public Color DrawColor { get; private set; } = Color.White;
+    public Tile SetDrawColor(Color? color = null) {
         DrawColor = color ?? Color.White;
         return this;
     }
 
-    public bool IsLightPassable = true;
+    public bool IsLightPassable { get; private set; } = true;
     public Tile SetLightPassable(bool v = true) {
         IsLightPassable = v;
         return this;
     }
 
-    public Func<int, int, int> transformIntoAfterCover = (myId, overId) => myId;
-    public Tile SetTransformIntoAfterCover(Func<int, int, int> func) {
-        transformIntoAfterCover = func;
+    public Func<int, int, int> TransformIntoAfterCover { get; private set; } = (myId, overId) => myId;
+    public Tile SetTransformIntoAfterCovert(Func<int, int, int> func) {
+        TransformIntoAfterCover = func;
         return this;
     }
-    public int OnCover(Tile tile) => transformIntoAfterCover(Id, tile.Id);
 
+    internal int OnCover(Tile tile) => TransformIntoAfterCover(Id, tile.Id);
 
-    public Func<int, int> dropFunc = myId => myId;
+    public Func<int, int> DropFunc { get; private set; } = myId => myId;
     public Tile SetOnBreak(Func<int, int> func) {
-        dropFunc = func;
+        DropFunc = func;
         return this;
     }
-    public void OnBreak() {
-        var id = dropFunc(Id);
+
+    internal void OnBreak() {
+        var id = DropFunc(Id);
         var tile = GameScene.TileRegister.GetTileById(id);
         GameScene.Inventory.AddItem(tile.Texture, tile.SourceRectangle, tile.Name, 1);
     }
 
-    public bool IsBreakable { get; protected set; } = false;
-    public float Durity { get; protected set; } = float.NaN;
+    public bool IsBreakable { get; private set; } = false;
+    public float Durity { get; private set; } = float.NaN;
     public Tile SetDurity(float? v = null) {
         IsBreakable = v is not null;
         if (IsBreakable)
@@ -80,13 +82,19 @@ public class Tile(Texture2D texture, Rectangle sourceRectangle, string name) {
         return this;
     }
 
-    public void Draw(SpriteBatch spriteBatch, Rectangle position) {
+    internal void Draw(SpriteBatch spriteBatch, Rectangle position) {
         if (Texture is null)
             return;
-        spriteBatch.Draw(Texture, position, SourceRectangle, DrawColor);
+        var pos = new Rectangle(
+            (int)Math.Round((float)position.X),
+            (int)Math.Round((float)position.Y),
+            (int)Math.Round((float)position.Width),
+            (int)Math.Round((float)position.Height)
+        );
+        spriteBatch.Draw(Texture, pos, SourceRectangle, DrawColor);
     }
 
-    public static Rectangle GetBounds(Vector2 position, int tileSize) {
+    internal static Rectangle GetBounds(Vector2 position, int tileSize) {
         return new Rectangle((int)position.X, (int)position.Y, tileSize, tileSize);
     }
 }

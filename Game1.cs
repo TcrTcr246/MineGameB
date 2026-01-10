@@ -10,9 +10,7 @@ public class Game1 : GameTemplate.Game {
     public static Texture2D Pixel { get; private set; }
 
     protected override void Initialize() {
-        Camera.TranslateBackToWorldPos = false;
-
-        /*/
+        //
         IsFixedTimeStep = false;
         _graphics.SynchronizeWithVerticalRetrace = false;
         _graphics.ApplyChanges();

@@ -20,7 +20,7 @@ public static class TileDeclaratioions {
         var register = TileRegister.Register;
         Tile newTile(Texture2D tileset, string name, int px, int py) {
             var t = tilesize;
-            return register(new Tile(tileset, new(px * t, py * t, t, t), name));
+            return register(new(tileset, new(px * t, py * t, t, t), name));
         }
 
         Random TileCoveredRandomizer = new();
@@ -35,9 +35,9 @@ public static class TileDeclaratioions {
         newTile(CaveTileset, "floor2", 1, 0).SetMapColor(Color.DarkGray);
         newTile(CaveTileset, "wall", 3, 0).SetMapColor(Color.Gray).SetSolid().SetDurity(150f).SetLightPassable(false);
 
-        newTile(SurfaceTileset, "grassVar1", 0, 0).SetMapColor(Color.LightGreen).SetTransformIntoAfterCover(randGrass);
-        newTile(SurfaceTileset, "grassVar2", 1, 0).SetMapColor(Color.LightGreen).SetTransformIntoAfterCover(randGrass);
-        newTile(SurfaceTileset, "grassVar3", 2, 0).SetMapColor(Color.LightGreen).SetTransformIntoAfterCover(randGrass);
+        newTile(SurfaceTileset, "grassVar1", 0, 0).SetMapColor(Color.LightGreen).SetTransformIntoAfterCovert(randGrass);
+        newTile(SurfaceTileset, "grassVar2", 1, 0).SetMapColor(Color.LightGreen).SetTransformIntoAfterCovert(randGrass);
+        newTile(SurfaceTileset, "grassVar3", 2, 0).SetMapColor(Color.LightGreen).SetTransformIntoAfterCovert(randGrass);
         newTile(SurfaceTileset, "grassVar4", 3, 0).SetMapColor(Color.LightGreen);
         newTile(SurfaceTileset, "grassVar5", 4, 0).SetMapColor(Color.LightGreen);
         newTile(SurfaceTileset, "grassVar6", 5, 0).SetMapColor(Color.LightGreen);
@@ -50,8 +50,8 @@ public static class TileDeclaratioions {
         newTile(SurfaceTileset, "water", 0, 3).SetMapColor(Color.LightBlue).SetSolid();
         newTile(SurfaceTileset, "sandVar1", 0, 2).SetMapColor(yellow);
         newTile(SurfaceTileset, "sandVar2", 1, 2).SetMapColor(yellow);
-        newTile(SurfaceTileset, "sandVar3", 2, 2).SetMapColor(yellow).SetTransformIntoAfterCover(randSand);
-        newTile(SurfaceTileset, "sandVar4", 3, 2).SetMapColor(yellow).SetTransformIntoAfterCover(randSand);
+        newTile(SurfaceTileset, "sandVar3", 2, 2).SetMapColor(yellow).SetTransformIntoAfterCovert(randSand);
+        newTile(SurfaceTileset, "sandVar4", 3, 2).SetMapColor(yellow).SetTransformIntoAfterCovert(randSand);
 
         newTile(SurfaceTileset, "mountain", 0, 5).SetMapColor(Color./*LightGray*/DarkSlateGray).SetSolid().SetDurity(150f).SetLightPassable(false);
         newTile(SurfaceTileset, "highMountain", 1, 5).SetMapColor(Color./*DarkGray*/DarkSlateGray).SetSolid().SetDurity(700f).SetLightPassable(false);

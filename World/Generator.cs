@@ -293,7 +293,6 @@ public class Generator {
                     if (isBorder) {
                         tiles[x, y, 0] = TileRegister.GetIdByName("water");
                         tiles[x, y, 1] = TileRegister.GetIdByName("ultraRock");
-                        processedTiles++;
                         goto _continue;
                     }
 

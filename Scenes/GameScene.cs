@@ -115,8 +115,6 @@ public class GameScene() : Scene("game") {
 
         // AddGears(objsImage, CaveMap);
 
-        // Shadow effect and player initialization will happen after map generation
-
         base.Load();
     }
 
@@ -131,12 +129,9 @@ public class GameScene() : Scene("game") {
             return;
         }
 
-        // Initialize shadow effect once map is ready
-        if (useShadowEffect && shadowEffect == null) {
+        if (useShadowEffect && shadowEffect == null)
             shadowEffect = new(Content.Load<Effect>("RadialEffect"), LocalMap, Content.Load<Texture2D>("shadow"));
-        }
 
-        // Set player position on first frame after generation
         if (isMapJustReady) {
             Debug.WriteLine("Map is ready.");
             Player.SetPosition(new Vector2(LocalMap.WorldWidth / 2, LocalMap.WorldHeight / 2));
